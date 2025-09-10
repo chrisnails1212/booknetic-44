@@ -609,6 +609,18 @@ export default function CustomerPortal() {
               </CardContent>
             </Card>
 
+            {/* Book Appointment Button */}
+            <div className="flex justify-center">
+              <Button 
+                onClick={() => window.open('/book/demo', '_blank')}
+                size="lg"
+                className="w-full sm:w-auto"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Book Appointment
+              </Button>
+            </div>
+
             <Tabs defaultValue="appointments" className="space-y-6">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="appointments">Appointments</TabsTrigger>
@@ -645,18 +657,6 @@ export default function CustomerPortal() {
                       <div className="text-3xl font-bold">{totalAppointments}</div>
                     </CardContent>
                   </Card>
-                </div>
-
-                {/* Book New Appointment Button */}
-                <div className="flex justify-center">
-                  <Button 
-                    onClick={() => window.open('/book/demo', '_blank')}
-                    size="lg"
-                    className="w-full sm:w-auto"
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Book New Appointment
-                  </Button>
                 </div>
 
                 <div className="space-y-4">
