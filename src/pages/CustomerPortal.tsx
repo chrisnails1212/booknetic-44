@@ -482,127 +482,153 @@ export default function CustomerPortal() {
     ? new Date(Math.max(...customerAppointments.map(apt => new Date(apt.date).getTime())))
     : null;
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <User className="h-6 w-6 text-primary" />
-              <h1 className="text-xl font-semibold">Customer Portal</h1>
-            </div>
-            {isAuthenticated && (
-              <Button variant="outline" onClick={handleLogout}>
-                <X className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {!isAuthenticated ? (
-          // Login Form
-          <div className="max-w-md mx-auto space-y-6 py-8">
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-semibold">Access Your Account</h2>
-              <p className="text-muted-foreground">
-                Enter your email to view and manage your appointments
-              </p>
-            </div>
-            
-            <Card>
-              <CardContent className="p-6">
-                <form onSubmit={handleLogin} className="space-y-4">
+  // Login form
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="max-w-md w-full mx-auto">
+          <Card className="shadow-lg">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <User className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900">Customer Portal</h1>
+                <p className="text-slate-600 mt-2">Access your appointments and profile</p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    placeholder="Enter your email address"
+                    required
+                  />
+                </div>
+                
+                {isPortalLockRequired(customerEmail) && (
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="portalLock">Portal Lock Password</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="your@email.com"
+                      id="portalLock"
+                      type="password"
+                      value={portalLock}
+                      onChange={(e) => setPortalLock(e.target.value)}
+                      placeholder="Enter portal lock password"
                       required
                     />
                   </div>
-                  
-                  {customerEmail && isPortalLockRequired(customerEmail) && (
-                    <div className="space-y-2">
-                      <Label htmlFor="portalLock">Portal Lock Password</Label>
-                      <Input
-                        id="portalLock"
-                        type="password"
-                        value={portalLock}
-                        onChange={(e) => setPortalLock(e.target.value)}
-                        placeholder="Enter your portal lock password"
-                        required
-                      />
-                    </div>
-                  )}
-                  
-                  <Button type="submit" className="w-full">
-                    Access Portal
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                )}
+                
+                <Button type="submit" className="w-full">
+                  Access Portal
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Only customers with login access enabled can use this portal. 
-                Contact us if you need access.
-              </AlertDescription>
-            </Alert>
+  // Main portal interface with admin layout style
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Sidebar */}
+      <div className="fixed left-0 top-0 h-full w-64 bg-slate-800 text-white overflow-y-auto">
+        {/* Logo */}
+        <div className="p-6 border-b border-slate-700">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <User className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-xl font-semibold">Customer Portal</span>
           </div>
-        ) : (
-          // Authenticated Customer Dashboard
+        </div>
+
+        {/* Navigation */}
+        <nav className="p-4 space-y-2">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 hover:bg-slate-700 text-slate-300 hover:text-white"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Sign Out</span>
+          </button>
+        </nav>
+      </div>
+
+      {/* Main content */}
+      <div className="ml-64">
+        {/* Header */}
+        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-slate-900">Customer Portal</h1>
+          <div className="flex items-center space-x-3">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={profileImage || "/placeholder.svg"} />
+              <AvatarFallback className="bg-slate-200">
+                {currentCustomer?.firstName?.[0]}{currentCustomer?.lastName?.[0]}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium text-slate-700">
+              {currentCustomer?.firstName} {currentCustomer?.lastName}
+            </span>
+          </div>
+        </header>
+
+        {/* Main content area */}
+        <main className="p-6">
           <div className="space-y-6">
-            {/* Customer Header */}
-            <Card>
+            {/* Profile Card */}
+            <Card className="shadow-sm">
               <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
                     <div className="relative">
-                      <Avatar className="w-12 h-12">
+                      <Avatar className="w-16 h-16">
                         <AvatarImage src={profileImage || "/placeholder.svg"} />
-                        <AvatarFallback className="bg-primary/10 text-primary">
+                        <AvatarFallback className="text-lg bg-slate-200">
                           {currentCustomer?.firstName?.[0]}{currentCustomer?.lastName?.[0]}
                         </AvatarFallback>
                       </Avatar>
                       <button
-                        onClick={() => document.getElementById('profile-upload')?.click()}
-                        className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:bg-primary/90 transition-colors"
-                      >
-                        <Camera className="h-3 w-3" />
-                      </button>
-                      <input
-                        id="profile-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                              const imageData = e.target?.result as string;
-                              setProfileImage(imageData);
-                              localStorage.setItem('customerProfileImage', imageData);
-                            };
-                            reader.readAsDataURL(file);
-                          }
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (e) => {
+                                const result = e.target?.result as string;
+                                setProfileImage(result);
+                                localStorage.setItem('customerProfileImage', result);
+                                toast.success('Profile image updated!');
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          };
+                          input.click();
                         }}
-                      />
+                        className="absolute -bottom-1 -right-1 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition-colors"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h2 className="font-semibold text-lg truncate">
-                        Welcome back, {currentCustomer?.firstName}
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Welcome back, {currentCustomer?.firstName}!
                       </h2>
-                      <p className="text-muted-foreground text-sm truncate">{currentCustomer?.email}</p>
+                      <p className="text-slate-600 flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        {currentCustomer?.email}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -612,15 +638,16 @@ export default function CustomerPortal() {
             {/* Book Appointment Button */}
             <div className="flex justify-center">
               <Button 
-                onClick={() => window.open('/book/demo', '_blank')}
+                onClick={() => navigate('/book/demo-business')} 
                 size="lg"
-                className="w-full sm:w-auto"
+                className="bg-blue-600 hover:bg-blue-700"
               >
-                <Calendar className="h-4 w-4 mr-2" />
+                <Calendar className="w-5 h-5 mr-2" />
                 Book Appointment
               </Button>
             </div>
 
+            {/* Tabs */}
             <Tabs defaultValue="appointments" className="space-y-6">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="appointments">Appointments</TabsTrigger>
@@ -629,431 +656,414 @@ export default function CustomerPortal() {
               </TabsList>
 
               {/* Appointments Tab */}
-              <TabsContent value="appointments" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <TabsContent value="appointments" className="space-y-4">
+                {customerAppointments.length === 0 ? (
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Upcoming</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-blue-600">{upcomingAppointments}</div>
+                    <CardContent className="p-6 text-center">
+                      <Calendar className="w-12 h-12 mx-auto text-slate-400 mb-4" />
+                      <h3 className="text-lg font-semibold text-slate-700 mb-2">No Appointments Yet</h3>
+                      <p className="text-slate-500 mb-4">You haven't booked any appointments yet.</p>
+                      <Button onClick={() => navigate('/book/demo-business')}>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Book Your First Appointment
+                      </Button>
                     </CardContent>
                   </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Completed</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-green-600">{completedAppointments}</div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Total</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold">{totalAppointments}</div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="space-y-4">
-                  {customerAppointments.length === 0 ? (
-                    <Card>
-                      <CardContent className="py-12 text-center">
-                        <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No appointments found</p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    customerAppointments
+                ) : (
+                  <div className="grid gap-4">
+                    {customerAppointments
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map((appointment) => {
                         const service = getServiceById(appointment.serviceId);
                         const staff = getStaffById(appointment.staffId);
                         const location = getLocationById(appointment.locationId);
                         const appointmentDate = new Date(appointment.date);
-                        const isUpcoming = isAfter(appointmentDate, new Date()) && appointment.status !== 'Cancelled';
-                        const canModify = isUpcoming && isAfter(appointmentDate, addDays(new Date(), 1));
+                        const today = new Date();
+                        const isUpcoming = appointmentDate > today && appointment.status !== 'Cancelled';
+                        const availableSlots = editingAppointment === appointment.id 
+                          ? getAvailableTimeSlots(selectedNewDate || appointmentDate, appointment.id)
+                          : [];
 
                         return (
-                          <Card key={appointment.id}>
+                          <Card key={appointment.id} className="shadow-sm">
                             <CardContent className="p-6">
-                              <div className="flex flex-col lg:flex-row items-start gap-4">
-                                <div className="space-y-3 flex-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant={getStatusBadge(appointment.status)}>
-                                      {appointment.status}
-                                    </Badge>
-                                    {isUpcoming && (
-                                      <Badge variant="outline">Upcoming</Badge>
-                                    )}
-                                  </div>
-
-                                  <div>
-                                    <h3 className="font-semibold text-lg">{service?.name || 'Unknown Service'}</h3>
-                                    <p className="text-muted-foreground">{formatPrice(appointment.totalPrice)}</p>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                      <span className="truncate">{format(appointmentDate, 'MMM dd, yyyy')}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                      <span className="truncate">{appointment.time}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                      <span className="truncate">{location?.name || 'Unknown Location'}</span>
-                                    </div>
-                                  </div>
-
-                                  <div className="text-sm text-muted-foreground">
-                                    <span className="font-medium">Staff:</span> {staff?.name || 'Unknown Staff'}
-                                  </div>
-                                </div>
-
-                                {canModify && (
-                                  <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto">
+                              {editingAppointment === appointment.id ? (
+                                // Editing mode
+                                <div className="space-y-4">
+                                  <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">Reschedule Appointment</h3>
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => setEditingAppointment(appointment.id)}
-                                      className="flex-1 lg:flex-none"
+                                      onClick={() => {
+                                        setEditingAppointment(null);
+                                        setSelectedNewDate(null);
+                                        setSelectedNewTime('');
+                                      }}
                                     >
-                                      <Edit2 className="h-4 w-4 mr-2" />
-                                      Reschedule
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleCancel(appointment.id)}
-                                      className="flex-1 lg:flex-none"
-                                    >
-                                      <X className="h-4 w-4 mr-2" />
-                                      Cancel
+                                      <X className="w-4 h-4" />
                                     </Button>
                                   </div>
-                                )}
-                              </div>
-
-                              {/* Reschedule Form */}
-                              {editingAppointment === appointment.id && (
-                                <div className="mt-6 p-4 border rounded-lg bg-muted/50 space-y-4">
-                                  <h4 className="font-medium">Reschedule Appointment</h4>
                                   
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                     <div className="space-y-2">
-                                       <Label>New Date</Label>
-                                       <Input
-                                         type="date"
-                                         min={format(addDays(new Date(), 2), 'yyyy-MM-dd')}
-                                         value={selectedNewDate ? format(selectedNewDate, 'yyyy-MM-dd') : ''}
-                                         onChange={(e) => {
-                                           const newDate = new Date(e.target.value);
-                                           // Check if date is available for this staff member
-                                           const staffMember = getStaffById(appointment.staffId);
-                                           if (staffMember?.schedule && isDateAvailable(newDate, staffMember.schedule)) {
-                                             setSelectedNewDate(newDate);
-                                             setSelectedNewTime(''); // Clear time when date changes
-                                           } else {
-                                             toast.error('This date is not available for the assigned staff member');
-                                           }
-                                         }}
-                                       />
-                                     </div>
-                                     
-                                     <div className="space-y-2">
-                                       <Label>New Time</Label>
-                                       <select
-                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                         value={selectedNewTime}
-                                         onChange={(e) => setSelectedNewTime(e.target.value)}
-                                       >
-                                         <option value="">Select time</option>
-                                         {selectedNewDate && getAvailableTimeSlots(selectedNewDate, appointment.id).map(time => (
-                                           <option key={time} value={time}>{formatTimeSlot(time)}</option>
-                                         ))}
-                                       </select>
-                                     </div>
+                                    <div className="space-y-2">
+                                      <Label>Select New Date</Label>
+                                      <Input
+                                        type="date"
+                                        value={selectedNewDate ? format(selectedNewDate, 'yyyy-MM-dd') : ''}
+                                        onChange={(e) => {
+                                          if (e.target.value) {
+                                            const date = new Date(e.target.value);
+                                            setSelectedNewDate(date);
+                                            setSelectedNewTime(''); // Reset time selection
+                                          }
+                                        }}
+                                        min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
+                                      />
+                                    </div>
+                                    
+                                    {selectedNewDate && (
+                                      <div className="space-y-2">
+                                        <Label>Select New Time</Label>
+                                        <select
+                                          className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                                          value={selectedNewTime}
+                                          onChange={(e) => setSelectedNewTime(e.target.value)}
+                                        >
+                                          <option value="">Select a time</option>
+                                          {availableSlots.map((slot) => (
+                                            <option key={slot} value={slot}>
+                                              {formatTimeSlot(slot)}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    )}
                                   </div>
-
-                                  <div className="flex flex-col sm:flex-row gap-2">
+                                  
+                                  <div className="flex gap-2 pt-4">
                                     <Button
-                                      size="sm"
                                       onClick={() => handleReschedule(appointment.id)}
                                       disabled={!selectedNewDate || !selectedNewTime}
-                                      className="flex-1 sm:flex-none"
                                     >
-                                      <CheckCircle className="h-4 w-4 mr-2" />
                                       Confirm Reschedule
                                     </Button>
                                     <Button
                                       variant="outline"
-                                      size="sm"
-                                      onClick={() => setEditingAppointment(null)}
-                                      className="flex-1 sm:flex-none"
+                                      onClick={() => {
+                                        setEditingAppointment(null);
+                                        setSelectedNewDate(null);
+                                        setSelectedNewTime('');
+                                      }}
                                     >
                                       Cancel
                                     </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                // View mode
+                                <div className="space-y-4">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h3 className="text-lg font-semibold text-slate-900">{service?.name}</h3>
+                                      <Badge variant={getStatusBadge(appointment.status)}>{appointment.status}</Badge>
+                                    </div>
+                                    {isUpcoming && (
+                                      <div className="flex gap-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => setEditingAppointment(appointment.id)}
+                                        >
+                                          <Edit2 className="w-4 h-4 mr-1" />
+                                          Reschedule
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleCancel(appointment.id)}
+                                        >
+                                          <X className="w-4 h-4 mr-1" />
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-600">
+                                    <div className="flex items-center gap-2">
+                                      <Calendar className="w-4 h-4" />
+                                      <span>{format(appointmentDate, 'MMM dd, yyyy')}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="w-4 h-4" />
+                                      <span>{appointment.time}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <User className="w-4 h-4" />
+                                      <span>{staff?.name}</span>
+                                    </div>
+                                  </div>
+
+                                  {location && (
+                                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                                      <MapPin className="w-4 h-4" />
+                                      <span>{location.name} - {location.address}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-center justify-between pt-2 border-t">
+                                    <span className="text-sm text-slate-600">Duration: {service?.duration || 60} minutes</span>
+                                    <span className="font-semibold text-slate-900">{formatPrice(appointment.totalPrice)}</span>
                                   </div>
                                 </div>
                               )}
                             </CardContent>
                           </Card>
                         );
-                      })
-                  )}
-                </div>
+                      })}
+                  </div>
+                )}
               </TabsContent>
 
               {/* Profile Tab */}
               <TabsContent value="profile" className="space-y-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                    <div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Personal Information */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle>Personal Information</CardTitle>
-                      <CardDescription>Your account details on file</CardDescription>
-                    </div>
-                    {!isEditingProfile ? (
-                      <Button variant="outline" size="sm" onClick={() => setIsEditingProfile(true)}>
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit Profile
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={handleCancelProfileEdit}>
-                          <X className="h-4 w-4 mr-2" />
-                          Cancel
+                      {!isEditingProfile ? (
+                        <Button variant="outline" size="sm" onClick={() => setIsEditingProfile(true)}>
+                          <Edit2 className="w-4 h-4 mr-1" />
+                          Edit
                         </Button>
-                        <Button size="sm" onClick={handleProfileUpdate}>
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Save Changes
-                        </Button>
-                      </div>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name *</Label>
-                        {isEditingProfile ? (
-                          <Input
-                            id="firstName"
-                            value={profileForm.firstName}
-                            onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
-                            placeholder="Enter first name"
-                            required
-                          />
-                        ) : (
-                          <div className="p-3 bg-muted rounded">{currentCustomer?.firstName}</div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name *</Label>
-                        {isEditingProfile ? (
-                          <Input
-                            id="lastName"
-                            value={profileForm.lastName}
-                            onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
-                            placeholder="Enter last name"
-                            required
-                          />
-                        ) : (
-                          <div className="p-3 bg-muted rounded">{currentCustomer?.lastName}</div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email *</Label>
-                        {isEditingProfile ? (
-                          <Input
-                            id="email"
-                            type="email"
-                            value={profileForm.email}
-                            onChange={(e) => handleProfileInputChange('email', e.target.value)}
-                            placeholder="Enter email address"
-                            required
-                          />
-                        ) : (
-                          <div className="p-3 bg-muted rounded">{currentCustomer?.email}</div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Phone</Label>
-                        {isEditingProfile ? (
-                          <Input
-                            id="phone"
-                            type="tel"
-                            value={profileForm.phone}
-                            onChange={(e) => handleProfileInputChange('phone', e.target.value)}
-                            placeholder="Enter phone number"
-                          />
-                        ) : (
-                          <div className="p-3 bg-muted rounded">{currentCustomer?.phone || 'Not provided'}</div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="gender">Gender</Label>
-                        {isEditingProfile ? (
-                          <select
-                            id="gender"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            value={profileForm.gender}
-                            onChange={(e) => handleProfileInputChange('gender', e.target.value)}
-                          >
-                            <option value="">Select gender</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                            <option value="prefer-not-to-say">Prefer not to say</option>
-                          </select>
-                        ) : (
-                          <div className="p-3 bg-muted rounded capitalize">{currentCustomer?.gender || 'Not specified'}</div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                        {isEditingProfile ? (
-                          <Input
-                            id="dateOfBirth"
-                            type="date"
-                            value={profileForm.dateOfBirth}
-                            onChange={(e) => handleProfileInputChange('dateOfBirth', e.target.value)}
-                            max={format(new Date(), 'yyyy-MM-dd')}
-                          />
-                        ) : (
-                          <div className="p-3 bg-muted rounded">
-                            {currentCustomer?.dateOfBirth 
-                              ? format(new Date(currentCustomer.dateOfBirth), 'MMM dd, yyyy')
-                              : 'Not provided'
-                            }
+                      ) : null}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {isEditingProfile ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="firstName">First Name</Label>
+                              <Input
+                                id="firstName"
+                                value={profileForm.firstName}
+                                onChange={(e) => handleProfileInputChange('firstName', e.target.value)}
+                                placeholder="First Name"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="lastName">Last Name</Label>
+                              <Input
+                                id="lastName"
+                                value={profileForm.lastName}
+                                onChange={(e) => handleProfileInputChange('lastName', e.target.value)}
+                                placeholder="Last Name"
+                              />
+                            </div>
                           </div>
-                        )}
+                          <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={profileForm.email}
+                              onChange={(e) => handleProfileInputChange('email', e.target.value)}
+                              placeholder="Email"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="phone">Phone</Label>
+                            <Input
+                              id="phone"
+                              value={profileForm.phone}
+                              onChange={(e) => handleProfileInputChange('phone', e.target.value)}
+                              placeholder="Phone Number"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="gender">Gender</Label>
+                              <select
+                                id="gender"
+                                value={profileForm.gender}
+                                onChange={(e) => handleProfileInputChange('gender', e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                              >
+                                <option value="">Select Gender</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                              <Input
+                                id="dateOfBirth"
+                                type="date"
+                                value={profileForm.dateOfBirth}
+                                onChange={(e) => handleProfileInputChange('dateOfBirth', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-4">
+                            <Button onClick={handleProfileUpdate}>
+                              Save Changes
+                            </Button>
+                            <Button variant="outline" onClick={handleCancelProfileEdit}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-sm text-slate-600">First Name</Label>
+                              <p className="font-medium">{currentCustomer?.firstName || 'Not provided'}</p>
+                            </div>
+                            <div>
+                              <Label className="text-sm text-slate-600">Last Name</Label>
+                              <p className="font-medium">{currentCustomer?.lastName || 'Not provided'}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-sm text-slate-600">Email</Label>
+                            <p className="font-medium">{currentCustomer?.email}</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm text-slate-600">Phone</Label>
+                            <p className="font-medium">{currentCustomer?.phone || 'Not provided'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-sm text-slate-600">Gender</Label>
+                              <p className="font-medium capitalize">{currentCustomer?.gender || 'Not specified'}</p>
+                            </div>
+                            <div>
+                              <Label className="text-sm text-slate-600">Date of Birth</Label>
+                              <p className="font-medium">
+                                {currentCustomer?.dateOfBirth 
+                                  ? format(new Date(currentCustomer.dateOfBirth), 'MMM dd, yyyy')
+                                  : 'Not provided'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Portal Security</CardTitle>
+                      <CardDescription>
+                        Manage access security for your customer portal
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <PortalLockSettings customerEmail={currentCustomer?.email || ''} />
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Notifications Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notifications</CardTitle>
+                      <p className="text-sm text-muted-foreground">We will send you updates about your appointments, news and offers.</p>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-4">
+                        <h4 className="font-semibold">Appointment notifications</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="sms-appointments">SMS</Label>
+                            <Switch id="sms-appointments" defaultChecked />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="email-appointments">Email</Label>
+                            <Switch id="email-appointments" defaultChecked />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-
-                    {isEditingProfile && (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Fields marked with * are required. Changes will be saved to your profile and updated in the business system.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Portal Security</CardTitle>
-                    <CardDescription>
-                      Manage access security for your customer portal
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <PortalLockSettings customerEmail={currentCustomer?.email || ''} />
-                  </CardContent>
-                </Card>
-                
-                {/* Notifications Card */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Notifications</CardTitle>
-                    <p className="text-sm text-muted-foreground">We will send you updates about your appointments, news and offers.</p>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      <h4 className="font-semibold">Appointment notifications</h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="sms-appointments">SMS</Label>
-                          <Switch id="sms-appointments" defaultChecked />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="email-appointments">Email</Label>
-                          <Switch id="email-appointments" defaultChecked />
+                      
+                      <div className="space-y-4">
+                        <h4 className="font-semibold">Marketing notifications</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="email-marketing">Email</Label>
+                            <Switch id="email-marketing" defaultChecked />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="sms-marketing">SMS</Label>
+                            <Switch id="sms-marketing" defaultChecked />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <h4 className="font-semibold">Marketing notifications</h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="email-marketing">Email</Label>
-                          <Switch id="email-marketing" defaultChecked />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="sms-marketing">SMS</Label>
-                          <Switch id="sms-marketing" defaultChecked />
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
 
-              {/* History & Stats Tab */}
+              {/* Account Tab */}
               <TabsContent value="history" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Account Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Customer Since</span>
-                      <span className="font-medium">
-                        {customerAppointments.length > 0 
-                          ? format(new Date(Math.min(...customerAppointments.map(apt => new Date(apt.date).getTime()))), 'MMM yyyy')
-                          : 'New Customer'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Total Appointments</span>
-                      <span className="font-medium">{totalAppointments}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Completed Appointments</span>
-                      <span className="font-medium">{completedAppointments}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Upcoming Appointments</span>
-                      <span className="font-medium">{upcomingAppointments}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Rescheduled</span>
-                      <span className="font-medium">{rescheduledAppointments}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Canceled</span>
-                      <span className="font-medium">{canceledAppointments}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Last Appointment Date</span>
-                      <span className="font-medium">
-                        {lastAppointmentDate 
-                          ? format(lastAppointmentDate, 'MMM dd, yyyy')
-                          : 'No appointments yet'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Total Spent</span>
-                      <span className="font-medium">
-                        {formatPrice(customerAppointments
-                          .filter(apt => apt.status === 'Completed')
-                          .reduce((sum, apt) => sum + apt.totalPrice, 0)
-                        )}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Account Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span>Customer Since</span>
+                        <span className="font-medium">
+                          {customerAppointments.length > 0 
+                            ? format(new Date(Math.min(...customerAppointments.map(apt => new Date(apt.date).getTime()))), 'MMM yyyy')
+                            : 'New Customer'
+                          }
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Total Appointments</span>
+                        <span className="font-medium">{totalAppointments}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Completed Appointments</span>
+                        <span className="font-medium">{completedAppointments}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Upcoming Appointments</span>
+                        <span className="font-medium">{upcomingAppointments}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Rescheduled</span>
+                        <span className="font-medium">{rescheduledAppointments}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Canceled</span>
+                        <span className="font-medium">{canceledAppointments}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Last Appointment Date</span>
+                        <span className="font-medium">
+                          {lastAppointmentDate 
+                            ? format(lastAppointmentDate, 'MMM dd, yyyy')
+                            : 'No appointments yet'
+                          }
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Total Spent</span>
+                        <span className="font-medium">
+                          {formatPrice(customerAppointments
+                            .filter(apt => apt.status === 'Completed')
+                            .reduce((sum, apt) => sum + apt.totalPrice, 0)
+                          )}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   <Card>
                     <CardHeader>
@@ -1099,8 +1109,8 @@ export default function CustomerPortal() {
               </TabsContent>
             </Tabs>
           </div>
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
