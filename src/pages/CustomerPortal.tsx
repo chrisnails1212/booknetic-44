@@ -947,6 +947,43 @@ export default function CustomerPortal() {
                   </CardContent>
                 </Card>
                 
+                {/* Notifications Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>notifications</CardTitle>
+                    <p className="text-sm text-muted-foreground">We will send you updates about your appointments, news and offers.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      <h4 className="font-semibold">Appointment notifications</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="sms-appointments">SMS</Label>
+                          <Switch id="sms-appointments" />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="email-appointments">Email</Label>
+                          <Switch id="email-appointments" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <h4 className="font-semibold">Marketing notifications</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="email-marketing">Email</Label>
+                          <Switch id="email-marketing" />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="sms-marketing">SMS</Label>
+                          <Switch id="sms-marketing" />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
                 <Card>
                   <CardHeader>
                     <CardTitle>Portal Security</CardTitle>
