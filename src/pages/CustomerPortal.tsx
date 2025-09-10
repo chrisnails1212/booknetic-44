@@ -625,7 +625,7 @@ export default function CustomerPortal() {
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="appointments">Appointments</TabsTrigger>
                 <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="history">History & Stats</TabsTrigger>
+                <TabsTrigger value="history">Account</TabsTrigger>
               </TabsList>
 
               {/* Appointments Tab */}
