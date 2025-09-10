@@ -1057,23 +1057,41 @@ export default function CustomerPortal() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Loyalty Status</CardTitle>
+                      <CardTitle>Points Summary</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="text-center">
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                          <span className="font-semibold">
-                            {completedAppointments >= 10 ? 'VIP Customer' : 
-                             completedAppointments >= 5 ? 'Valued Customer' : 'Welcome Customer'}
-                          </span>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Current Points</p>
+                          <p className="text-3xl font-bold">{completedAppointments * 50}</p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {completedAppointments >= 10 
-                            ? 'Thank you for your continued loyalty!' 
-                            : `${10 - completedAppointments} more appointments to reach VIP status`
-                          }
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Current Tier</p>
+                          <p className="text-3xl font-bold">
+                            {completedAppointments >= 10 ? 'Gold' : 
+                             completedAppointments >= 5 ? 'Silver' : 'Bronze'}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Total Spent</p>
+                          <p className="text-3xl font-bold">
+                            {formatPrice(customerAppointments
+                              .filter(apt => apt.status === 'Completed')
+                              .reduce((sum, apt) => sum + apt.totalPrice, 0)
+                            )}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Next Tier</p>
+                          <p className="text-lg font-semibold">
+                            {completedAppointments >= 10 
+                              ? 'Max tier reached!' 
+                              : completedAppointments >= 5 
+                                ? `Gold: ${(10 - completedAppointments) * 50} more points`
+                                : `Silver: ${(5 - completedAppointments) * 50} more points`
+                            }
+                          </p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
