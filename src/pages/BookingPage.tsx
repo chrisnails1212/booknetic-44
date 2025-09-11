@@ -1971,27 +1971,6 @@ const BookingPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Business Header */}
-      <div className="text-white" style={{ backgroundColor: theme.panelBackground }}>
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden">
-              {theme.logo ? (
-                <img 
-                  src={theme.logo} 
-                  alt="Business Logo" 
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <span className="font-bold text-2xl" style={{ color: theme.panelBackground }}>
-                  {theme.businessName.charAt(0)}
-                </span>
-              )}
-            </div>
-            <h1 className="text-3xl font-bold">{theme.businessName}</h1>
-            <p className="mt-2 opacity-90">{theme.businessSlogan}</p>
-          </div>
-        </div>
-      </div>
 
       {/* Progress Bar */}
       {theme.showBookingProcess && (
