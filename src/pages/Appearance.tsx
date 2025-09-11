@@ -324,6 +324,15 @@ const Appearance = () => {
               
               <div className="bg-slate-50 rounded-lg overflow-hidden min-h-[400px]">
                 <div className="flex flex-col h-full">
+                  {/* Header */}
+                  <div className="p-4 text-center text-white" style={{ backgroundColor: localTheme.panelBackground }}>
+                    <div className="w-8 h-8 bg-white rounded-full mx-auto mb-2 flex items-center justify-center">
+                      <span className="text-xs font-bold text-slate-800">E</span>
+                    </div>
+                    <div className="text-sm font-bold mb-1">Elite Hair Salon</div>
+                    <div className="text-xs opacity-90">Book your appointment online</div>
+                  </div>
+                  
                   {/* Step Indicators */}
                   <div className="bg-white px-4 py-3 border-b">
                     <div className="flex justify-center space-x-2">
@@ -410,6 +419,15 @@ const Appearance = () => {
               {/* Style Preview */}
               <div className="bg-slate-50 rounded-lg overflow-hidden mb-4 min-h-[300px]">
                 <div className="flex flex-col h-full">
+                  {/* Header */}
+                  <div className="p-4 text-center text-white" style={{ backgroundColor: selectedStyle === style.id ? theme.panelBackground : style.theme.panelBackground }}>
+                    <div className="w-8 h-8 bg-white rounded-full mx-auto mb-2 flex items-center justify-center">
+                      <span className="text-xs font-bold text-slate-800">E</span>
+                    </div>
+                    <div className="text-sm font-bold mb-1">Elite Hair Salon</div>
+                    <div className="text-xs opacity-90">Book your appointment online</div>
+                  </div>
+                  
                   {/* Step Indicators */}
                   <div className="bg-white px-4 py-3 border-b">
                     <div className="flex justify-center space-x-2">
