@@ -19,7 +19,6 @@ const GeneralSettings = () => {
     dateFormat: 'MM/DD/YYYY',
     allowCancellation: true,
     requireConfirmation: false,
-    enableGroupBooking: false,
     emailNotifications: true,
     smsNotifications: false
   });
@@ -84,17 +83,6 @@ const GeneralSettings = () => {
                   id="requireConfirmation" 
                   checked={settings.requireConfirmation}
                   onCheckedChange={(checked) => setSettings({...settings, requireConfirmation: checked})}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label htmlFor="enableGroupBooking">Enable Group Booking</Label>
-                  <p className="text-sm text-gray-500">Allow customers to book appointments for multiple people</p>
-                </div>
-                <Switch 
-                  id="enableGroupBooking" 
-                  checked={settings.enableGroupBooking}
-                  onCheckedChange={(checked) => setSettings({...settings, enableGroupBooking: checked})}
                 />
               </div>
             </CardContent>
