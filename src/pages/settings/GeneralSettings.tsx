@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,10 +19,28 @@ const GeneralSettings = () => {
     dateFormat: 'MM/DD/YYYY',
     allowCancellation: true,
     requireConfirmation: false,
-    groupBooking: false,
+    groupBooking: true,
     emailNotifications: true,
     smsNotifications: false
   });
+
+  // Load settings from localStorage on component mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('generalSettings');
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings);
+        setSettings(prevSettings => ({ ...prevSettings, ...parsedSettings }));
+      } catch (error) {
+        console.error('Error parsing saved settings:', error);
+      }
+    }
+  }, []);
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('generalSettings', JSON.stringify(settings));
+  }, [settings]);
 
   const handleSave = () => {
     toast({
