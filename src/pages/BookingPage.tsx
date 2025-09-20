@@ -78,6 +78,8 @@ const BookingPage = () => {
   
   const [additionalGuests, setAdditionalGuests] = useState(0);
   const [bringPeopleEnabled, setBringPeopleEnabled] = useState(false);
+  const [guestServices, setGuestServices] = useState<{[guestIndex: number]: string}>({});
+  const [extraServices, setExtraServices] = useState<string[]>([]);
 
   const steps = [
     'Location',
@@ -125,9 +127,17 @@ const BookingPage = () => {
       if (extra) subtotal += extra.price;
     });
 
-    // Apply group booking multiplier
-    const multiplier = 1 + additionalGuests;
-    subtotal = subtotal * multiplier;
+    // Add guest services
+    Object.values(guestServices).forEach(guestServiceId => {
+      const guestService = services.find(s => s.id === guestServiceId);
+      if (guestService) subtotal += guestService.price;
+    });
+
+    // Add extra services
+    extraServices.forEach(extraServiceId => {
+      const extraService = services.find(s => s.id === extraServiceId);
+      if (extraService) subtotal += extraService.price;
+    });
 
     let totalDiscount = 0;
 
@@ -162,9 +172,17 @@ const BookingPage = () => {
       if (extra) subtotal += extra.price;
     });
 
-    // Apply group booking multiplier (price multiplied by 1 + additional guests)
-    const multiplier = 1 + additionalGuests;
-    subtotal = subtotal * multiplier;
+    // Add guest services
+    Object.values(guestServices).forEach(guestServiceId => {
+      const guestService = services.find(s => s.id === guestServiceId);
+      if (guestService) subtotal += guestService.price;
+    });
+
+    // Add extra services
+    extraServices.forEach(extraServiceId => {
+      const extraService = services.find(s => s.id === extraServiceId);
+      if (extraService) subtotal += extraService.price;
+    });
 
     // Apply coupon discount
     if (availableCoupon) {
@@ -550,7 +568,9 @@ const BookingPage = () => {
         ).map(tax => tax.id),
         customFields: convertedCustomFields,
         totalPrice: calculateTotal(),
-        additionalGuests
+        additionalGuests,
+        guestServices,
+        extraServices
       });
 
       console.log('Booking submitted:', {
@@ -717,7 +737,7 @@ const BookingPage = () => {
                  </Card>
                ))}
              </div>
-             
+              
               {/* Group Booking UI */}
               {groupBookingEnabled && (() => {
                 const selectedService = services.find(s => s.id === bookingData.service);
@@ -734,6 +754,8 @@ const BookingPage = () => {
                             setBringPeopleEnabled(!!checked);
                             if (!checked) {
                               setAdditionalGuests(0);
+                              setGuestServices({});
+                              setExtraServices([]);
                             }
                           }}
                         />
@@ -743,42 +765,155 @@ const BookingPage = () => {
                           Bring People with You
                         </Label>
                         <p className="text-sm text-gray-600 mt-1">
-                          Add additional people to your booking
+                          Add additional people and services to your booking
                         </p>
                         
                         {bringPeopleEnabled && (
-                          <div className="mt-4">
-                            <p className="text-sm text-gray-600 mb-3">
-                              Number of additional people:
-                            </p>
-                            <div className="flex items-center space-x-4">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setAdditionalGuests(Math.max(0, additionalGuests - 1))}
-                                disabled={additionalGuests === 0}
-                                className="w-8 h-8 p-0"
-                              >
-                                <Minus className="w-4 h-4" />
-                              </Button>
-                              <span className="text-lg font-medium min-w-[2rem] text-center">
-                                {additionalGuests}
-                              </span>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setAdditionalGuests(Math.min(guestLimit, additionalGuests + 1))}
-                                disabled={additionalGuests >= guestLimit}
-                                className="w-8 h-8 p-0"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                            {additionalGuests > 0 && (
-                              <p className="text-xs text-blue-600 mt-2">
-                                Total: {1 + additionalGuests} people (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
+                          <div className="mt-4 space-y-6">
+                            {/* Number of Additional People */}
+                            <div>
+                              <p className="text-sm text-gray-600 mb-3">
+                                Number of additional people:
                               </p>
+                              <div className="flex items-center space-x-4">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newCount = Math.max(0, additionalGuests - 1);
+                                    setAdditionalGuests(newCount);
+                                    // Remove guest services for removed guests
+                                    const newGuestServices = { ...guestServices };
+                                    for (let i = newCount; i < additionalGuests; i++) {
+                                      delete newGuestServices[i];
+                                    }
+                                    setGuestServices(newGuestServices);
+                                  }}
+                                  disabled={additionalGuests === 0}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </Button>
+                                <span className="text-lg font-medium min-w-[2rem] text-center">
+                                  {additionalGuests}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setAdditionalGuests(Math.min(guestLimit, additionalGuests + 1))}
+                                  disabled={additionalGuests >= guestLimit}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              {additionalGuests > 0 && (
+                                <p className="text-xs text-blue-600 mt-2">
+                                  Total: {1 + additionalGuests} people (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Service Selection for Guests */}
+                            {additionalGuests > 0 && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 mb-3">
+                                  Select services for each additional person:
+                                </p>
+                                <div className="space-y-3">
+                                  {Array.from({ length: additionalGuests }, (_, index) => (
+                                    <div key={index} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg bg-white">
+                                      <span className="text-sm font-medium text-gray-700 min-w-[100px]">
+                                        Guest {index + 1}:
+                                      </span>
+                                      <Select
+                                        value={guestServices[index] || ''}
+                                        onValueChange={(value) => {
+                                          setGuestServices(prev => ({
+                                            ...prev,
+                                            [index]: value
+                                          }));
+                                        }}
+                                      >
+                                        <SelectTrigger className="flex-1">
+                                          <SelectValue placeholder="Select a service" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {services
+                                            .filter(service => {
+                                              // Filter services available at current location
+                                              const availableStaff = staff.filter(s => 
+                                                s.services.includes(service.id) && 
+                                                s.locations.includes(bookingData.location)
+                                              );
+                                              return availableStaff.length > 0;
+                                            })
+                                            .map((service) => (
+                                              <SelectItem key={service.id} value={service.id}>
+                                                <div className="flex justify-between items-center w-full">
+                                                  <span>{service.name}</span>
+                                                  <span className="ml-2 text-gray-500">{formatPrice(service.price)}</span>
+                                                </div>
+                                              </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             )}
+
+                            {/* Extra Services Selection */}
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 mb-3">
+                                Add extra services (optional):
+                              </p>
+                              <div className="space-y-2">
+                                {services
+                                  .filter(service => {
+                                    // Filter services available at current location and not the main service
+                                    if (service.id === bookingData.service) return false;
+                                    const availableStaff = staff.filter(s => 
+                                      s.services.includes(service.id) && 
+                                      s.locations.includes(bookingData.location)
+                                    );
+                                    return availableStaff.length > 0;
+                                  })
+                                  .map((service) => (
+                                    <div key={service.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white">
+                                      <div className="flex items-center space-x-3">
+                                        <Checkbox
+                                          checked={extraServices.includes(service.id)}
+                                          onCheckedChange={(checked) => {
+                                            if (checked) {
+                                              setExtraServices(prev => [...prev, service.id]);
+                                            } else {
+                                              setExtraServices(prev => prev.filter(id => id !== service.id));
+                                            }
+                                          }}
+                                        />
+                                        <div>
+                                          <p className="font-medium">{service.name}</p>
+                                          <p className="text-sm text-gray-600">{service.description}</p>
+                                          <p className="text-xs text-gray-500">{service.duration} minutes</p>
+                                        </div>
+                                      </div>
+                                      <span className="text-sm font-semibold">+{formatPrice(service.price)}</span>
+                                    </div>
+                                  ))}
+                                {services.filter(service => {
+                                  if (service.id === bookingData.service) return false;
+                                  const availableStaff = staff.filter(s => 
+                                    s.services.includes(service.id) && 
+                                    s.locations.includes(bookingData.location)
+                                  );
+                                  return availableStaff.length > 0;
+                                }).length === 0 && (
+                                  <p className="text-sm text-gray-500 italic">No extra services available</p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
