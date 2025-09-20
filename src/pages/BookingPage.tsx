@@ -1969,78 +1969,78 @@ const BookingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Business Header */}
-
-      {/* Progress Bar */}
-      {theme.showBookingProcess && (
-        <div className="bg-white border-b">
-          <div className="max-w-4xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              {steps.filter(step => step !== 'Service Extras' && (step !== 'Location' || locations.length > 1)).map((step, index) => {
-                // Calculate the actual step number considering the hidden steps
-                const actualIndex = steps.indexOf(step);
-                const displayNumber = actualIndex > 2 ? index + 1 : index + 1;
-                
-                return (
-                  <div key={step} className="flex items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white`}
-                      style={{
-                        backgroundColor: actualIndex + 1 <= currentStep ? (actualIndex + 1 === currentStep ? theme.activeColor : theme.completedColor) : '#e5e7eb'
-                      }}
-                    >
-                      {displayNumber}
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+      <div className="w-full">
+        {/* Progress Bar */}
+        {theme.showBookingProcess && (
+          <div className="bg-white border-b">
+            <div className="max-w-4xl mx-auto px-4 py-4">
+              <div className="flex items-center justify-between">
+                {steps.filter(step => step !== 'Service Extras' && (step !== 'Location' || locations.length > 1)).map((step, index) => {
+                  // Calculate the actual step number considering the hidden steps
+                  const actualIndex = steps.indexOf(step);
+                  const displayNumber = actualIndex > 2 ? index + 1 : index + 1;
+                  
+                  return (
+                    <div key={step} className="flex items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white`}
+                        style={{
+                          backgroundColor: actualIndex + 1 <= currentStep ? (actualIndex + 1 === currentStep ? theme.activeColor : theme.completedColor) : '#e5e7eb'
+                        }}
+                      >
+                        {displayNumber}
+                      </div>
+                      <span className="ml-2 text-sm font-medium hidden md:inline">{step}</span>
+                      {index < steps.filter(s => s !== 'Service Extras' && (s !== 'Location' || locations.length > 1)).length - 1 && (
+                        <div className="w-8 h-0.5 bg-gray-200 mx-4 hidden md:block" />
+                      )}
                     </div>
-                    <span className="ml-2 text-sm font-medium hidden md:inline">{step}</span>
-                    {index < steps.filter(s => s !== 'Service Extras' && (s !== 'Location' || locations.length > 1)).length - 1 && (
-                      <div className="w-8 h-0.5 bg-gray-200 mx-4 hidden md:block" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="p-6">
-            {renderStepContent()}
-          </CardContent>
-        </Card>
-
-        {/* Navigation Buttons */}
-        {currentStep < 8 && (
-          <div className="flex justify-between mt-6">
-            {currentStep > (locations.length === 1 ? 2 : 1) && (
-              <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
-                Back
-              </Button>
-            )}
-            <div className="ml-auto">
-              {currentStep < 7 ? (
-                <Button 
-                  onClick={handleNext}
-                  disabled={!validateStep() || isSubmitting}
-                  style={{ backgroundColor: theme.primaryColor }}
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button 
-                  onClick={handleBookingSubmit} 
-                  disabled={isSubmitting}
-                  style={{ backgroundColor: theme.activeColor }}
-                >
-                  {isSubmitting ? 'Processing...' : 'Confirm Booking'}
-                </Button>
-              )}
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
+
+        {/* Main Content */}
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <Card>
+            <CardContent className="p-6">
+              {renderStepContent()}
+            </CardContent>
+          </Card>
+
+          {/* Navigation Buttons */}
+          {currentStep < 8 && (
+            <div className="flex justify-between mt-6">
+              {currentStep > (locations.length === 1 ? 2 : 1) && (
+                <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
+                  Back
+                </Button>
+              )}
+              <div className="ml-auto">
+                {currentStep < 7 ? (
+                  <Button 
+                    onClick={handleNext}
+                    disabled={!validateStep() || isSubmitting}
+                    style={{ backgroundColor: theme.primaryColor }}
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleBookingSubmit} 
+                    disabled={isSubmitting}
+                    style={{ backgroundColor: theme.activeColor }}
+                  >
+                    {isSubmitting ? 'Processing...' : 'Confirm Booking'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
