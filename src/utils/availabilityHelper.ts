@@ -28,7 +28,6 @@ interface BreakTime {
 }
 
 interface StaffSchedule {
-  staffId: string;
   weekly: Record<string, WorkingHours>;
   specialDays: SpecialDay[];
   holidays: Holiday[];
@@ -207,77 +206,6 @@ export const isDateAvailable = (date: Date, staffSchedule: StaffSchedule): boole
   const workingHours = staffSchedule.weekly[dayName];
 
   return workingHours?.isWorking || false;
-};
-
-// Group booking availability functions
-export const getGroupAvailableTimeSlots = (
-  date: Date,
-  staffSchedules: StaffSchedule[],
-  serviceStaffPairs: Array<{ serviceId: string; staffId: string; serviceDuration: number }>,
-  bookedAppointments: BookedAppointment[] = [],
-  concurrent: boolean = true
-): string[] => {
-  if (serviceStaffPairs.length === 0) return [];
-  
-  // For concurrent bookings, find slots where ALL staff are available
-  if (concurrent) {
-    // Get the longest service duration for slot generation
-    const maxDuration = Math.max(...serviceStaffPairs.map(pair => pair.serviceDuration));
-    
-    // Get available slots for each staff member
-    const allStaffSlots = serviceStaffPairs.map(pair => {
-      const staffSchedule = staffSchedules.find(schedule => 
-        schedule.staffId === pair.staffId
-      );
-      
-      if (!staffSchedule) return [];
-      
-      return getAvailableTimeSlotsForDate(
-        date,
-        staffSchedule,
-        pair.serviceDuration,
-        bookedAppointments,
-        pair.staffId
-      );
-    });
-    
-    // Find intersection of all staff availability
-    if (allStaffSlots.length === 0) return [];
-    
-    return allStaffSlots[0].filter(slot => 
-      allStaffSlots.every(staffSlots => staffSlots.includes(slot))
-    );
-  } else {
-    // For sequential bookings, find slots where staff can be scheduled one after another
-    // This is more complex and would require scheduling algorithm
-    // For now, return concurrent availability as fallback
-    return getGroupAvailableTimeSlots(date, staffSchedules, serviceStaffPairs, bookedAppointments, true);
-  }
-};
-
-export const isGroupTimeSlotAvailable = (
-  timeSlot: string,
-  date: Date,
-  serviceStaffPairs: Array<{ serviceId: string; staffId: string; serviceDuration: number }>,
-  staffSchedules: StaffSchedule[],
-  bookedAppointments: BookedAppointment[] = []
-): boolean => {
-  return serviceStaffPairs.every(pair => {
-    const staffSchedule = staffSchedules.find(schedule => 
-      schedule.staffId === pair.staffId
-    );
-    
-    if (!staffSchedule) return false;
-    
-    return isTimeSlotAvailable(
-      timeSlot,
-      pair.serviceDuration,
-      staffSchedule.breakTimes || [],
-      bookedAppointments,
-      date,
-      pair.staffId
-    );
-  });
 };
 
 export const findNextAvailableDate = (
