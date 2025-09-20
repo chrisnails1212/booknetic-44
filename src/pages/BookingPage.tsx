@@ -758,22 +758,6 @@ const BookingPage = () => {
                             <Plus className="w-4 h-4" />
                           </Button>
                         </div>
-                        
-                        {additionalGuests > 0 && (
-                          <div className="mt-4 space-y-2">
-                            <div className="flex justify-between">
-                              <span>Service Price:</span>
-                              <span className="font-medium">{formatPrice((selectedService.price * (1 + additionalGuests)))}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Duration:</span>
-                              <span className="font-medium">{selectedService.duration * (1 + additionalGuests)} minutes</span>
-                            </div>
-                            <div className="text-xs text-blue-600 mt-2">
-                              Price and duration multiplied by {1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
