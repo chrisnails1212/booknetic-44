@@ -49,16 +49,23 @@ const BookingPage = () => {
   // Load group booking setting from localStorage
   useEffect(() => {
     const savedSettings = localStorage.getItem('generalSettings');
+    console.log('Loading group booking settings:', savedSettings);
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
+        console.log('Parsed settings:', parsedSettings);
         setGroupBookingEnabled(parsedSettings.groupBooking !== false); // Default to true
         setGuestLimit(parsedSettings.groupBookingGuestLimit || 10); // Default to 10
+        console.log('Group booking enabled:', parsedSettings.groupBooking !== false);
       } catch (error) {
         console.error('Error parsing general settings:', error);
         setGroupBookingEnabled(true); // Default to true if parsing fails
         setGuestLimit(10); // Default to 10 if parsing fails
       }
+    } else {
+      console.log('No general settings found, defaulting to enabled');
+      setGroupBookingEnabled(true);
+      setGuestLimit(10);
     }
   }, []);
 
@@ -751,7 +758,13 @@ const BookingPage = () => {
              </div>
               
               {/* Group Booking UI */}
-              {groupBookingEnabled && (() => {
+              {(() => {
+                console.log('Group booking enabled:', groupBookingEnabled);
+                console.log('Selected service ID:', bookingData.service);
+                const selectedService = services.find(s => s.id === bookingData.service);
+                console.log('Selected service:', selectedService);
+                return groupBookingEnabled;
+              })() && (() => {
                 const selectedService = services.find(s => s.id === bookingData.service);
                 if (!selectedService) return null;
                 
