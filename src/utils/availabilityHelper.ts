@@ -163,8 +163,8 @@ export const getAvailableTimeSlotsForDate = (
 
   if (!workingHours || !workingHours.isWorking) return [];
 
-  // Generate all possible time slots
-  const allSlots = generateTimeSlots(workingHours.start, workingHours.end, 30);
+  // Generate all possible time slots based on service duration
+  const allSlots = generateTimeSlots(workingHours.start, workingHours.end, serviceDuration);
 
   // Filter slots that can accommodate the service duration
   const availableSlots = allSlots.filter(slot => {
