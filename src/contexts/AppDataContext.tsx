@@ -136,6 +136,7 @@ export interface Appointment {
   totalPrice: number;
   additionalGuests?: number;
   guestServices?: {[guestIndex: number]: string};
+  guestServiceExtras?: string[];
 }
 
 interface AppDataContextType {
