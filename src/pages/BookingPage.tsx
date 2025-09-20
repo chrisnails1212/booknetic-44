@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { HorizontalCalendar } from '@/components/booking/HorizontalCalendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, Clock, User, MapPin, Gift, CheckCircle, CalendarIcon, Plus, Minus, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Gift, CheckCircle, CalendarIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useBookingTheme } from '@/contexts/BookingThemeContext';
@@ -19,19 +19,24 @@ import { useAppData } from '@/contexts/AppDataContext';
 import { format, parse, addMinutes, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { InteractiveFormRenderer } from '@/components/forms/InteractiveFormRenderer';
-import { getAvailableTimeSlotsForDate, isDateAvailable, formatTimeSlot, findNextAvailableDate } from '@/utils/availabilityHelper';
+import { getAvailableTimeSlotsForDate, isDateAvailable, formatTimeSlot, getGroupAvailableTimeSlots, getGroupBookingDuration, StaffServicePair } from '@/utils/availabilityHelper';
 import { convertCustomFieldsForSaving } from '@/utils/fileHelper';
 import { CustomerSelfServicePanel } from '@/components/customers/CustomerSelfServicePanel';
-
+import { BookingTypeSelector } from '@/components/booking/BookingTypeSelector';
+import { GroupBookingManager } from '@/components/booking/GroupBookingManager';
+import { BookingType, GroupBookingMember } from '@/types/groupBookingTypes';
 
 const BookingPage = () => {
   const { businessSlug } = useParams();
   const { toast } = useToast();
   const { theme } = useBookingTheme();
   const { formatPrice } = useCurrency();
-  console.log('BookingPage: Current theme is', theme);
   const { locations, staff, services, coupons, giftcards, taxes, customers, appointments, addCustomer, updateCustomer, addAppointment } = useAppData();
-  // Auto-select location if only one exists and start from service step
+  
+  // Booking type state
+  const [bookingType, setBookingType] = useState<BookingType | null>(null);
+  
+  // Individual booking states
   const initialStep = locations.length === 1 ? 2 : 1;
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,14 +62,31 @@ const BookingPage = () => {
     giftcardCode: '',
     notes: ''
   });
-  
-  const [additionalGuests, setAdditionalGuests] = useState(0);
 
-  const steps = [
+  // Group booking states
+  const [groupCurrentStep, setGroupCurrentStep] = useState(1);
+  const [groupMembers, setGroupMembers] = useState<GroupBookingMember[]>([]);
+  const [sameStaff, setSameStaff] = useState(true);
+  const [groupBookingData, setGroupBookingData] = useState({
+    location: locations.length === 1 ? locations[0].id : '',
+    date: '',
+    time: '',
+    notes: ''
+  });
+
+  const individualSteps = [
     'Location',
     'Service',
     'Service Extras',
     'Staff', 
+    'Date & Time',
+    'Information',
+    'Confirmation'
+  ];
+
+  const groupSteps = [
+    'Location',
+    'Group Setup',
     'Date & Time',
     'Information',
     'Confirmation'
@@ -77,6 +99,21 @@ const BookingPage = () => {
     const savedForms = JSON.parse(localStorage.getItem('customForms') || '[]');
     setServiceForms(savedForms);
   }, []);
+
+  // Initialize primary member when switching to group booking
+  useEffect(() => {
+    if (bookingType === 'group' && groupMembers.length === 0) {
+      const primaryMember: GroupBookingMember = {
+        id: 'primary-member',
+        name: '',
+        serviceId: '',
+        staffId: '',
+        extras: [],
+        isPrimary: true
+      };
+      setGroupMembers([primaryMember]);
+    }
+  }, [bookingType, groupMembers.length]);
 
   // Get available staff for selected service and location
   const getAvailableStaff = () => {
@@ -93,8 +130,10 @@ const BookingPage = () => {
     );
   };
 
-  // Calculate discount amount
+  // Calculate discount amount (Individual booking only)
   const calculateDiscountAmount = () => {
+    if (bookingType === 'group') return 0;
+
     const selectedService = services.find(s => s.id === bookingData.service);
     if (!selectedService) return 0;
 
@@ -105,10 +144,6 @@ const BookingPage = () => {
       const extra = selectedService.extras?.find(e => e.id === extraId);
       if (extra) subtotal += extra.price;
     });
-
-    // Apply group booking multiplier
-    const multiplier = 1 + additionalGuests;
-    subtotal = subtotal * multiplier;
 
     let totalDiscount = 0;
 
@@ -132,6 +167,10 @@ const BookingPage = () => {
 
   // Calculate total price with taxes, coupons, and gift cards
   const calculateTotal = () => {
+    if (bookingType === 'group') {
+      return calculateGroupTotal();
+    }
+
     const selectedService = services.find(s => s.id === bookingData.service);
     if (!selectedService) return 0;
 
@@ -142,10 +181,6 @@ const BookingPage = () => {
       const extra = selectedService.extras?.find(e => e.id === extraId);
       if (extra) subtotal += extra.price;
     });
-
-    // Apply group booking multiplier (price multiplied by 1 + additional guests)
-    const multiplier = 1 + additionalGuests;
-    subtotal = subtotal * multiplier;
 
     // Apply coupon discount
     if (availableCoupon) {
@@ -177,7 +212,29 @@ const BookingPage = () => {
     return subtotal + taxAmount;
   };
 
+  // Calculate group booking total
+  const calculateGroupTotal = () => {
+    return groupMembers.reduce((total, member) => {
+      const service = services.find(s => s.id === member.serviceId);
+      if (!service) return total;
+      
+      let memberTotal = service.price;
+      
+      // Add extras
+      member.extras.forEach(extraId => {
+        const extra = service.extras?.find(e => e.id === extraId);
+        if (extra) memberTotal += extra.price;
+      });
+      
+      return total + memberTotal;
+    }, 0);
+  };
+
   const validateStep = () => {
+    if (bookingType === 'group') {
+      return validateGroupStep();
+    }
+
     switch (currentStep) {
       case 1:
         return bookingData.location !== '';
@@ -234,8 +291,28 @@ const BookingPage = () => {
     }
   };
 
+  const validateGroupStep = () => {
+    switch (groupCurrentStep) {
+      case 1:
+        return groupBookingData.location !== '';
+      case 2:
+        return groupMembers.length > 0 && 
+               groupMembers.every(m => m.name && m.serviceId && (sameStaff || m.staffId));
+      case 3:
+        return groupBookingData.date !== '' && groupBookingData.time !== '';
+      case 4:
+        return true; // Information step
+      default:
+        return true;
+    }
+  };
+
   const handleNext = () => {
-    if (validateStep() && currentStep < steps.length) {
+    if (bookingType === 'group') {
+      return handleGroupNext();
+    }
+
+    if (validateStep() && currentStep < individualSteps.length) {
       let nextStep = currentStep + 1;
       
       // Skip Service Extras step if no extras are available
@@ -256,7 +333,23 @@ const BookingPage = () => {
     }
   };
 
+  const handleGroupNext = () => {
+    if (validateGroupStep() && groupCurrentStep < groupSteps.length) {
+      setGroupCurrentStep(groupCurrentStep + 1);
+    } else {
+      toast({
+        title: "Please complete all required fields",
+        description: "Make sure all required information is filled in before proceeding.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleBack = () => {
+    if (bookingType === 'group') {
+      return handleGroupBack();
+    }
+
     const minStep = locations.length === 1 ? 2 : 1;
     if (currentStep > minStep) {
       let previousStep = currentStep - 1;
@@ -278,208 +371,21 @@ const BookingPage = () => {
     }
   };
 
-  const validateCouponUsage = (coupon: any, customerId?: string) => {
-    // Check if coupon is active
-    if (coupon.status !== 'Active') {
-      return { valid: false, reason: "Coupon is inactive." };
-    }
-
-    // Check usage limit
-    if (coupon.usageLimit !== 'No limit') {
-      const usageLimit = parseInt(coupon.usageLimit);
-      if (coupon.timesUsed >= usageLimit) {
-        return { valid: false, reason: "Coupon has reached its usage limit." };
-      }
-    }
-
-    // Check "once per" restrictions
-    if (coupon.oncePer && customerId) {
-      const customer = customers.find(c => c.id === customerId);
-      if (!customer) {
-        return { valid: false, reason: "Customer not found." };
-      }
-
-      if (coupon.oncePer === 'customer') {
-        // Check if this customer has used this coupon before
-        const customerAppointments = appointments.filter(apt => 
-          apt.customerId === customerId && apt.appliedCoupons?.includes(coupon.id)
-        );
-        if (customerAppointments.length > 0) {
-          return { valid: false, reason: "This coupon can only be used once per customer." };
-        }
-      } else if (coupon.oncePer === 'day') {
-        // Check if this customer has used this coupon today
-        const today = new Date().toDateString();
-        const todaysAppointments = appointments.filter(apt => 
-          apt.customerId === customerId && 
-          apt.appliedCoupons?.includes(coupon.id) &&
-          new Date(apt.date).toDateString() === today
-        );
-        if (todaysAppointments.length > 0) {
-          return { valid: false, reason: "This coupon can only be used once per day." };
-        }
-      }
-      // 'booking' restriction is automatically enforced since we only allow one coupon per booking
-    }
-
-    return { valid: true };
-  };
-
-  const handleCouponValidation = () => {
-    const coupon = coupons.find(c => 
-      c.code.toLowerCase() === bookingData.couponCode.toLowerCase()
-    );
-    
-    if (!coupon) {
-      toast({
-        title: "Invalid Coupon",
-        description: "The coupon code does not exist.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Find or create customer ID for validation
-    let customerId = '';
-    if (bookingData.customerEmail) {
-      const existingCustomer = customers.find(c => c.email === bookingData.customerEmail);
-      customerId = existingCustomer?.id || '';
-    }
-
-    const validation = validateCouponUsage(coupon, customerId);
-    
-    if (validation.valid) {
-      setAvailableCoupon(coupon);
-      toast({
-        title: "Coupon Applied!",
-        description: `${coupon.discount} discount applied.`,
-      });
-    } else {
-      toast({
-        title: "Coupon Not Available",
-        description: validation.reason,
-        variant: "destructive"
-      });
+  const handleGroupBack = () => {
+    const minStep = locations.length === 1 ? 2 : 1;
+    if (groupCurrentStep > minStep) {
+      setGroupCurrentStep(groupCurrentStep - 1);
     }
   };
 
-  const validateGiftcardUsage = (giftcard: any, customerId?: string) => {
-    // Check if gift card is active and has balance
-    if (!giftcard.isActive || giftcard.leftover <= 0) {
-      return { valid: false, reason: "Gift card is inactive or has no remaining balance." };
+  const handleSubmit = async () => {
+    if (bookingType === 'group') {
+      return handleGroupBookingSubmit();
     }
-
-    // Check expiration
-    if (giftcard.expiresAt && new Date(giftcard.expiresAt) < new Date()) {
-      return { valid: false, reason: "Gift card has expired." };
-    }
-
-    // Check location filter
-    if (giftcard.locationFilter !== 'all-locations' && giftcard.locationFilter !== bookingData.location) {
-      const location = locations.find(l => l.id === bookingData.location);
-      return { valid: false, reason: `Gift card is only valid at ${locations.find(l => l.id === giftcard.locationFilter)?.name || 'specific locations'}.` };
-    }
-
-    // Check service filter
-    if (giftcard.servicesFilter !== 'all-services' && giftcard.servicesFilter !== bookingData.service) {
-      const service = services.find(s => s.id === bookingData.service);
-      return { valid: false, reason: `Gift card is only valid for ${services.find(s => s.id === giftcard.servicesFilter)?.name || 'specific services'}.` };
-    }
-
-    // Check staff filter
-    if (giftcard.staffFilter !== 'all-staff' && giftcard.staffFilter !== bookingData.staff) {
-      const staffMember = staff.find(s => s.id === bookingData.staff);
-      return { valid: false, reason: `Gift card is only valid with ${staff.find(s => s.id === giftcard.staffFilter)?.name || 'specific staff members'}.` };
-    }
-
-    // Check usage limit
-    if (giftcard.usageLimit !== 'no-limit') {
-      const usageLimit = parseInt(giftcard.usageLimit);
-      const timesUsed = giftcard.usageHistory?.length || 0;
-      
-      if (timesUsed >= usageLimit) {
-        return { valid: false, reason: `Gift card has reached its usage limit of ${usageLimit} times.` };
-      }
-    }
-
-    // Check "once per" restrictions
-    if (giftcard.oncePer && customerId) {
-      const customerEmail = customFormData.email || customFormData['Email'] || '';
-      const today = new Date().toDateString();
-      
-      switch (giftcard.oncePer) {
-        case 'customer':
-          // Check if this customer has already used this gift card
-          const customerUsage = appointments.filter(apt => 
-            apt.appliedGiftcards?.includes(giftcard.id) && 
-            (apt.customerId === customerId || 
-             (customers.find(c => c.id === apt.customerId)?.email.toLowerCase() === customerEmail.toLowerCase()))
-          );
-          if (customerUsage.length > 0) {
-            return { valid: false, reason: "You have already used this gift card. This gift card can only be used once per customer." };
-          }
-          break;
-          
-        case 'booking':
-          // This is handled automatically since each booking is separate
-          break;
-          
-        case 'day':
-          // Check if this customer has used this gift card today
-          const todayUsage = appointments.filter(apt => {
-            const aptDate = new Date(apt.date).toDateString();
-            const aptCustomer = customers.find(c => c.id === apt.customerId);
-            return apt.appliedGiftcards?.includes(giftcard.id) && 
-                   aptDate === today &&
-                   (apt.customerId === customerId || 
-                    (aptCustomer?.email.toLowerCase() === customerEmail.toLowerCase()));
-          });
-          if (todayUsage.length > 0) {
-            return { valid: false, reason: "You have already used this gift card today. This gift card can only be used once per day." };
-          }
-          break;
-      }
-    }
-
-    return { valid: true };
+    return handleIndividualBookingSubmit();
   };
 
-  const handleGiftcardValidation = () => {
-    const giftcard = giftcards.find(g => 
-      g.code.toLowerCase() === giftcardCode.toLowerCase()
-    );
-    
-    if (!giftcard) {
-      toast({
-        title: "Invalid Gift Card",
-        description: "The gift card code was not found.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Get customer email for validation
-    const customerEmail = customFormData.email || customFormData['Email'] || '';
-    const existingCustomer = customers.find(c => c.email.toLowerCase() === customerEmail.toLowerCase());
-    
-    const validation = validateGiftcardUsage(giftcard, existingCustomer?.id);
-    
-    if (validation.valid) {
-      setAvailableGiftcard(giftcard);
-      toast({
-        title: "Gift Card Applied!",
-        description: `$${giftcard.leftover.toFixed(2)} gift card balance applied.`,
-      });
-    } else {
-      toast({
-        title: "Gift Card Cannot Be Used",
-        description: validation.reason,
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleBookingSubmit = async () => {
+  const handleIndividualBookingSubmit = async () => {
     if (!validateStep()) {
       toast({
         title: "Please complete all required fields",
@@ -490,103 +396,66 @@ const BookingPage = () => {
     }
 
     setIsSubmitting(true);
-    
+
     try {
-      // Simulate API call - in real app, this would send to your backend
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Find or create customer
+      let customerId = '';
+      const existingCustomer = customers.find(c => c.email === customFormData.email || c.email === customFormData['Email']);
       
-      // Extract customer information from custom form data for later use
-      const firstName = customFormData.firstName || customFormData['First Name'] || '';
-      const lastName = customFormData.lastName || customFormData['Last Name'] || '';
-      const email = customFormData.email || customFormData['Email'] || '';
-      const note = customFormData.note || customFormData['Note'] || '';
+      if (existingCustomer) {
+        customerId = existingCustomer.id;
+      } else {
+        // Create new customer
+        const newCustomer = {
+          firstName: customFormData.firstName || customFormData['First Name'] || bookingData.customerName || '',
+          lastName: customFormData.lastName || customFormData['Last Name'] || '',
+          email: customFormData.email || customFormData['Email'] || bookingData.customerEmail || '',
+          phone: customFormData.phone || customFormData['Phone'] || bookingData.customerPhone || '',
+          gender: customFormData.gender || customFormData['Gender'] || '',
+          dateOfBirth: customFormData.dateOfBirth ? new Date(customFormData.dateOfBirth) : undefined,
+          note: customFormData.notes || bookingData.notes || '',
+          allowLogin: false
+        };
+        customerId = addCustomer(newCustomer);
+      }
 
-      // Customer will be auto-created from appointment custom fields in AppDataContext
-      // No need to manually create customer here - let addAppointment handle it
+      // Convert custom form data for saving
+      const convertedCustomFields = await convertCustomFieldsForSaving(customFormData);
 
-      // Merge custom form data and dynamic field values before saving
-      const mergedCustomFields = { ...customFormData, ...dynamicFieldValues };
-      
-      // Convert file objects to serializable format before saving
-      const convertedCustomFields = await convertCustomFieldsForSaving(mergedCustomFields);
+      // Get applicable taxes
+      const applicableTaxes = taxes.filter(tax => 
+        tax.enabled && 
+        (tax.locationsFilter === 'all-locations' || tax.locationsFilter === bookingData.location) &&
+        (tax.servicesFilter === 'all-services' || tax.servicesFilter === bookingData.service)
+      );
 
-      // Create appointment record with "confirmed" status
-      // Pass empty customerId - let addAppointment auto-create customer from customFields
-      const appointmentId = addAppointment({
-        customerId: '', // Will be auto-generated from customFields
+      const appointmentData = {
+        customerId: customerId,
         staffId: bookingData.staff,
         serviceId: bookingData.service,
         locationId: bookingData.location,
         date: new Date(bookingData.date),
         time: bookingData.time,
-        status: 'Confirmed',
-        notes: note,
-        selectedExtras,
+        status: 'Confirmed' as const,
+        notes: bookingData.notes,
+        selectedExtras: selectedExtras,
         appliedCoupons: availableCoupon ? [availableCoupon.id] : [],
         appliedGiftcards: availableGiftcard ? [availableGiftcard.id] : [],
-        appliedTaxes: taxes.filter(tax => 
-          tax.enabled && 
-          (tax.locationsFilter === 'all-locations' || tax.locationsFilter === bookingData.location) &&
-          (tax.servicesFilter === 'all-services' || tax.servicesFilter === bookingData.service)
-        ).map(tax => tax.id),
+        appliedTaxes: applicableTaxes.map(tax => tax.id),
         customFields: convertedCustomFields,
-        totalPrice: calculateTotal(),
-        additionalGuests
-      });
+        totalPrice: calculateTotal()
+      };
 
-      console.log('Booking submitted:', {
-        appointmentId,
-        ...bookingData,
-        selectedExtras,
-        customFormData,
-        appliedCoupon: availableCoupon?.id,
-        appliedGiftcard: availableGiftcard?.id,
-        totalPrice: calculateTotal(),
-        businessSlug,
-        timestamp: new Date().toISOString()
-      });
+      addAppointment(appointmentData);
+      setBookingConfirmed(true);
 
-      // Save form responses for custom forms
-      const selectedService = services.find(s => s.id === bookingData.service);
-      const applicableCustomForms = serviceForms.filter(form => {
-        if (form.id === 'first-visit-form') return false; // Skip the first visit form for custom responses
-        if (form.services === 'All Services' || form.services === 'all') {
-          return true;
-        }
-        if (selectedService && form.services) {
-          const serviceCategoryLower = selectedService.category.toLowerCase();
-          const formServicesLower = form.services.toLowerCase();
-          return serviceCategoryLower === formServicesLower;
-        }
-        return false;
-      });
-
-      // Save responses for all applicable custom forms
-      applicableCustomForms.forEach(form => {
-        const existingResponses = JSON.parse(localStorage.getItem('formResponses') || '[]');
-        const mergedFormData = { ...customFormData, ...dynamicFieldValues };
-        const newResponse = {
-          id: `response_${Date.now()}_${Math.random()}`,
-          formId: form.id,
-          customerEmail: email,
-          customerName: `${firstName} ${lastName}`.trim(),
-          submittedAt: new Date().toISOString(),
-          responses: mergedFormData,
-          appointmentId: appointmentId
-        };
-        
-        existingResponses.push(newResponse);
-        localStorage.setItem('formResponses', JSON.stringify(existingResponses));
-      });
-
-      setCurrentStep(8); // Move to confirmation step
-      
       toast({
         title: "Booking Confirmed!",
-        description: "Your appointment has been successfully booked!",
+        description: "Your appointment has been successfully booked.",
       });
 
     } catch (error) {
+      console.error('Error submitting booking:', error);
       toast({
         title: "Booking Failed",
         description: "There was an error processing your booking. Please try again.",
@@ -597,1453 +466,796 @@ const BookingPage = () => {
     }
   };
 
-  const renderStepContent = () => {
+  const handleGroupBookingSubmit = async () => {
+    if (!validateGroupStep()) {
+      toast({
+        title: "Please complete all required fields",
+        description: "Make sure all required information is filled in.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const groupId = `group-${Date.now()}`;
+      
+      // Create appointments for each group member
+      for (const member of groupMembers) {
+        const service = services.find(s => s.id === member.serviceId);
+        if (!service) continue;
+
+        // Find or create customer for this member
+        let customerId = '';
+        if (member.customerEmail) {
+          const existingCustomer = customers.find(c => c.email === member.customerEmail);
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          } else {
+            customerId = addCustomer({
+              firstName: member.name.split(' ')[0] || '',
+              lastName: member.name.split(' ').slice(1).join(' ') || '',
+              email: member.customerEmail,
+              phone: member.customerPhone || '',
+              gender: '',
+              note: member.notes || '',
+              allowLogin: false
+            });
+          }
+        } else {
+          // Create customer with just name
+          customerId = addCustomer({
+            firstName: member.name.split(' ')[0] || '',
+            lastName: member.name.split(' ').slice(1).join(' ') || '',
+            email: `${member.name.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+            phone: '',
+            gender: '',
+            note: member.notes || '',
+            allowLogin: false
+          });
+        }
+
+        const appointmentData = {
+          customerId,
+          staffId: sameStaff ? groupMembers[0].staffId : member.staffId,
+          serviceId: member.serviceId,
+          locationId: groupBookingData.location,
+          date: new Date(groupBookingData.date),
+          time: groupBookingData.time,
+          status: 'Confirmed' as const,
+          notes: `Group booking ${groupId}. ${member.notes || ''}`,
+          selectedExtras: member.extras,
+          appliedCoupons: [],
+          appliedGiftcards: [],
+          appliedTaxes: [],
+          customFields: { groupBookingId: groupId, memberName: member.name },
+          totalPrice: service.price + member.extras.reduce((sum, extraId) => {
+            const extra = service.extras?.find(e => e.id === extraId);
+            return sum + (extra?.price || 0);
+          }, 0)
+        };
+
+        addAppointment(appointmentData);
+      }
+
+      setBookingConfirmed(true);
+
+      toast({
+        title: "Group Booking Confirmed!",
+        description: `Successfully booked appointments for ${groupMembers.length} members.`,
+      });
+
+    } catch (error) {
+      console.error('Error submitting group booking:', error);
+      toast({
+        title: "Group Booking Failed",
+        description: "There was an error processing your group booking. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Show booking type selector if not selected
+  if (!bookingType) {
+    return <BookingTypeSelector onSelect={setBookingType} />;
+  }
+
+  // Show booking confirmed state
+  if (bookingConfirmed) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-center">
+        <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+        <h1 className="text-3xl font-bold text-green-500 mb-2">Booking Confirmed!</h1>
+        <p className="text-muted-foreground mb-6">
+          {bookingType === 'group' 
+            ? `Your group booking for ${groupMembers.length} members has been successfully created.`
+            : 'Your appointment has been successfully booked. You will receive a confirmation email shortly.'
+          }
+        </p>
+        <Button 
+          onClick={() => {
+            setBookingConfirmed(false);
+            setBookingType(null);
+            setCurrentStep(initialStep);
+            setGroupCurrentStep(1);
+            setGroupMembers([]);
+          }}
+          className="w-full"
+        >
+          Book Another Appointment
+        </Button>
+      </div>
+    );
+  }
+
+  const currentStepData = bookingType === 'group' ? groupSteps : individualSteps;
+  const currentStepIndex = bookingType === 'group' ? groupCurrentStep : currentStep;
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Progress indicator */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl font-bold">
+            {bookingType === 'group' ? 'Group Booking' : 'Book Appointment'}
+          </h1>
+          <span className="text-sm text-muted-foreground">
+            Step {currentStepIndex} of {currentStepData.length}
+          </span>
+        </div>
+        <div className="w-full bg-secondary rounded-full h-2">
+          <div 
+            className="bg-primary h-2 rounded-full transition-all" 
+            style={{ width: `${(currentStepIndex / currentStepData.length) * 100}%` }}
+          />
+        </div>
+        <div className="flex justify-between mt-2">
+          {currentStepData.map((step, index) => (
+            <span
+              key={step}
+              className={cn(
+                "text-xs",
+                index + 1 === currentStepIndex
+                  ? "text-primary font-medium"
+                  : index + 1 < currentStepIndex
+                  ? "text-muted-foreground"
+                  : "text-muted-foreground/50"
+              )}
+            >
+              {step}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Render individual or group booking steps */}
+      {bookingType === 'individual' ? renderIndividualBookingSteps() : renderGroupBookingSteps()}
+
+      {/* Navigation buttons */}
+      <div className="flex justify-between mt-8">
+        <Button
+          variant="outline"
+          onClick={handleBack}
+          disabled={
+            (bookingType === 'individual' && currentStep <= (locations.length === 1 ? 2 : 1)) ||
+            (bookingType === 'group' && groupCurrentStep <= (locations.length === 1 ? 2 : 1))
+          }
+        >
+          Back
+        </Button>
+        
+        <Button
+          onClick={
+            (bookingType === 'individual' && currentStep === individualSteps.length) ||
+            (bookingType === 'group' && groupCurrentStep === groupSteps.length)
+              ? handleSubmit
+              : handleNext
+          }
+          disabled={!validateStep() || isSubmitting}
+        >
+          {isSubmitting
+            ? "Processing..."
+            : (bookingType === 'individual' && currentStep === individualSteps.length) ||
+              (bookingType === 'group' && groupCurrentStep === groupSteps.length)
+            ? "Confirm Booking"
+            : "Next"
+          }
+        </Button>
+      </div>
+    </div>
+  );
+
+  // Individual booking step renderer
+  function renderIndividualBookingSteps() {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Select Location</h3>
-            <div className="space-y-3">
-              {locations.map((location) => (
-                <Card
-                  key={location.id}
-                  className={`cursor-pointer transition-all ${
-                    bookingData.location === location.id
-                      ? 'ring-2 bg-blue-50'
-                      : 'hover:shadow-md'
-                  }`}
-                  style={{
-                    borderColor: bookingData.location === location.id ? theme.activeColor : undefined,
-                    '--tw-ring-color': theme.activeColor
-                  } as React.CSSProperties}
-                  onClick={() => setBookingData({ ...bookingData, location: location.id })}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-4">
-                      {location.image ? (
-                        <img
-                          src={location.image}
-                          alt={location.name}
-                          className="w-16 h-16 object-cover rounded-lg border flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg border flex items-center justify-center flex-shrink-0">
-                          <MapPin className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <h4 className="font-medium">{location.name}</h4>
-                        <p className="text-sm text-gray-600">{location.address}</p>
-                        <p className="text-sm text-gray-500">{location.phone}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 2:
-        const availableServices = services.filter(service =>
-          !bookingData.location || service.staffIds?.some(staffId => 
-            staff.find(s => s.id === staffId)?.locations.includes(bookingData.location)
-          )
-        );
-
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Select Service</h3>
-            <div className="space-y-3">
-              {availableServices.map((service) => (
-                <Card
-                  key={service.id}
-                  className={`cursor-pointer transition-all ${
-                    bookingData.service === service.id
-                      ? 'ring-2 bg-blue-50'
-                      : 'hover:shadow-md'
-                  }`}
-                  style={{
-                    borderColor: bookingData.service === service.id ? theme.activeColor : undefined,
-                    '--tw-ring-color': theme.activeColor
-                  } as React.CSSProperties}
-                  onClick={() => setBookingData({ ...bookingData, service: service.id })}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-4">
-                      {service.image && (
-                        <img
-                          src={service.image}
-                          alt={service.name}
-                          className="w-16 h-16 object-cover rounded-lg border flex-shrink-0"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium">{service.name}</h4>
-                            <p className="text-sm text-gray-600">{service.category}</p>
-                            <p className="text-sm text-gray-500">{service.duration} minutes</p>
-                            {service.description && (
-                              <p className="text-sm text-gray-500 mt-1">{service.description}</p>
-                            )}
-                          </div>
-                           <div className="text-right">
-                             <span className="text-lg font-semibold">{formatPrice(service.price)}</span>
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                 </Card>
-               ))}
-             </div>
-             
-             {/* Group Booking UI */}
-             {(() => {
-               const selectedService = services.find(s => s.id === bookingData.service);
-               if (!selectedService?.groupBooking?.enabled) return null;
-               
-               return (
-                 <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-                   <div className="flex items-start space-x-3">
-                     <div className="flex-shrink-0 mt-1">
-                       <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                         <CheckCircle className="w-3 h-3 text-white" />
-                       </div>
-                     </div>
-                     <div className="flex-1">
-                       <h4 className="font-medium text-gray-900 mb-2">✓ Bring People with You</h4>
-                       <p className="text-sm text-gray-600 mb-4">
-                         Number of people: 
-                       </p>
-                       <div className="flex items-center space-x-4">
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => setAdditionalGuests(Math.max(0, additionalGuests - 1))}
-                           disabled={additionalGuests === 0}
-                           className="w-8 h-8 p-0"
-                         >
-                           <Minus className="w-4 h-4" />
-                         </Button>
-                         <span className="text-lg font-medium min-w-[2rem] text-center">
-                           {additionalGuests}
-                         </span>
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => setAdditionalGuests(Math.min(selectedService.groupBooking?.maxAdditionalGuests || 5, additionalGuests + 1))}
-                           disabled={additionalGuests >= (selectedService.groupBooking?.maxAdditionalGuests || 5)}
-                           className="w-8 h-8 p-0"
-                         >
-                           <Plus className="w-4 h-4" />
-                         </Button>
-                       </div>
-                       
-                       {additionalGuests > 0 && (
-                         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                           <div className="text-sm space-y-1">
-                             <div className="flex justify-between">
-                               <span>Service Price:</span>
-                               <span>{formatPrice((selectedService.price * (1 + additionalGuests)))}</span>
-                             </div>
-                             <div className="flex justify-between">
-                               <span>Duration:</span>
-                               <span>{selectedService.duration * (1 + additionalGuests)} minutes</span>
-                             </div>
-                             <div className="text-xs text-blue-600 mt-2">
-                               Price and duration multiplied by {1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
-                             </div>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                   </div>
-                 </div>
-               );
-             })()}
-           </div>
-         );
-
-      case 3:
-        const selectedService = services.find(s => s.id === bookingData.service);
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Service Extras</h3>
-            {selectedService?.extras && selectedService.extras.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-gray-600">Add any extras to enhance your service (optional)</p>
-                {selectedService.extras.map((extra) => (
-                  <Card key={extra.id} className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Checkbox
-                          checked={selectedExtras.includes(extra.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedExtras([...selectedExtras, extra.id]);
-                            } else {
-                              setSelectedExtras(selectedExtras.filter(id => id !== extra.id));
-                            }
-                          }}
-                        />
-                        <div>
-                          <h5 className="font-medium">{extra.name}</h5>
-                          <p className="text-sm text-gray-600">{extra.description}</p>
-                          <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
-                        </div>
-                      </div>
-                      <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No extras available for this service.</p>
-                <p className="text-sm text-gray-400 mt-2">Click Next to continue with staff selection.</p>
-              </div>
-            )}
-          </div>
-        );
-
-      case 4:
-        const availableStaff = getAvailableStaff();
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Select Staff</h3>
-            <div className="space-y-3">
-              <Card
-                className={`cursor-pointer transition-all ${
-                  bookingData.staff === 'any' ? 'ring-2 bg-blue-50' : 'hover:shadow-md'
-                }`}
-                style={{
-                  borderColor: bookingData.staff === 'any' ? theme.activeColor : undefined,
-                  '--tw-ring-color': theme.activeColor
-                } as React.CSSProperties}
-                onClick={() => setBookingData({ ...bookingData, staff: 'any' })}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Select Location
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={bookingData.location}
+                onValueChange={(value) => setBookingData({ ...bookingData, location: value })}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-gray-500" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Any Available Staff</h4>
-                      <p className="text-sm text-gray-600">First available appointment</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              {availableStaff.map((staffMember) => (
-                <Card
-                  key={staffMember.id}
-                  className={`cursor-pointer transition-all ${
-                    bookingData.staff === staffMember.id
-                      ? 'ring-2 bg-blue-50'
-                      : 'hover:shadow-md'
-                  }`}
-                  style={{
-                    borderColor: bookingData.staff === staffMember.id ? theme.activeColor : undefined,
-                    '--tw-ring-color': theme.activeColor
-                  } as React.CSSProperties}
-                  onClick={() => setBookingData({ ...bookingData, staff: staffMember.id })}
-                >
-                   <CardContent className="p-4">
-                     <div className="flex items-center space-x-3">
-                       <Avatar className="w-12 h-12">
-                         {staffMember.avatar ? (
-                           <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
-                         ) : (
-                           <AvatarFallback 
-                             className="text-white font-semibold"
-                             style={{ backgroundColor: theme.primaryColor }}
-                           >
-                             {staffMember.name.split(' ').map(n => n[0]).join('')}
-                           </AvatarFallback>
-                         )}
-                       </Avatar>
-                       <div>
-                         <h4 className="font-medium">{staffMember.name}</h4>
-                         <p className="text-sm text-gray-600">{staffMember.role}</p>
-                         <p className="text-sm text-gray-500">{staffMember.department}</p>
-                       </div>
-                     </div>
-                   </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 5:
-        const selectedServiceForTime = services.find(s => s.id === bookingData.service);
-        const selectedStaffForTime = staff.find(s => s.id === bookingData.staff);
-        
-        // Calculate total service duration
-        let totalServiceDuration = selectedServiceForTime?.duration || 60;
-        selectedExtras.forEach(extraId => {
-          const extra = selectedServiceForTime?.extras?.find(e => e.id === extraId);
-          if (extra) totalServiceDuration += extra.duration || 30;
-        });
-        
-        // Apply group booking duration multiplier
-        const durationMultiplier = 1 + additionalGuests;
-        totalServiceDuration = totalServiceDuration * durationMultiplier;
-
-        // Convert appointments to BookedAppointment format
-        const bookedAppointments = appointments.map(appointment => {
-          const service = services.find(s => s.id === appointment.serviceId);
-          let appointmentDuration = service?.duration || 60;
-          
-          // Add extra duration if any
-          if (appointment.selectedExtras) {
-            appointment.selectedExtras.forEach(extraId => {
-              const extra = service?.extras?.find(e => e.id === extraId);
-              if (extra) appointmentDuration += extra.duration || 30;
-            });
-          }
-          
-          // Apply group booking duration multiplier if appointment has additional guests
-          const appointmentMultiplier = 1 + (appointment.additionalGuests || 0);
-          appointmentDuration = appointmentDuration * appointmentMultiplier;
-          
-          return {
-            id: appointment.id,
-            staffId: appointment.staffId,
-            serviceId: appointment.serviceId,
-            date: appointment.date,
-            time: appointment.time,
-            duration: appointmentDuration
-          };
-        });
-
-        // Get available time slots for selected date
-        const availableTimeSlots = bookingData.date && selectedStaffForTime?.schedule 
-          ? getAvailableTimeSlotsForDate(
-              new Date(bookingData.date), 
-              selectedStaffForTime.schedule, 
-              totalServiceDuration,
-              bookedAppointments,
-              selectedStaffForTime.id
-            )
-          : [];
-
-        // For "any staff", we should combine availability from all available staff
-        const getAnyStaffAvailability = (date: Date) => {
-          if (bookingData.staff !== 'any') return [];
-          
-          const availableStaff = getAvailableStaff();
-          const allTimeSlots = new Set<string>();
-          
-          availableStaff.forEach(staffMember => {
-            if (staffMember.schedule) {
-              const slots = getAvailableTimeSlotsForDate(
-                date, 
-                staffMember.schedule, 
-                totalServiceDuration,
-                bookedAppointments,
-                staffMember.id
-              );
-              slots.forEach(slot => allTimeSlots.add(slot));
-            }
-          });
-          
-          return Array.from(allTimeSlots).sort();
-        };
-
-        const finalAvailableSlots = bookingData.staff === 'any' && bookingData.date
-          ? getAnyStaffAvailability(new Date(bookingData.date))
-          : availableTimeSlots;
-
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Select Date & Time</h3>
-            
-            {/* Top Row: Staff Selector and Calendar Icon */}
-            <div className="flex items-center justify-between">
-              {/* Staff Selection */}
-              <Select 
-                value={bookingData.staff} 
-                onValueChange={(value) => {
-                  const newBookingData = { ...bookingData, staff: value };
-                  
-                  // If a date is already selected and we're changing staff
-                  if (bookingData.date && value !== bookingData.staff) {
-                    const selectedService = services.find(s => s.id === bookingData.service);
-                    if (!selectedService) {
-                      setBookingData(newBookingData);
-                      return;
-                    }
-                    
-                    const totalServiceDuration = selectedService.duration + 
-                      selectedExtras.reduce((total, extraId) => {
-                        const extra = selectedService.extras?.find(e => e.id === extraId);
-                        return total + (extra?.duration || 0);
-                      }, 0);
-
-                    // Get booked appointments for availability checking
-                    const bookedAppointments = appointments.map(appointment => {
-                      const appointmentService = services.find(s => s.id === appointment.serviceId);
-                      const baseDuration = appointmentService?.duration || 60;
-                      const extrasDuration = appointment.selectedExtras.reduce((total, extraId) => {
-                        const extra = appointmentService?.extras?.find(e => e.id === extraId);
-                        return total + (extra?.duration || 0);
-                      }, 0);
-                      const appointmentDuration = baseDuration + extrasDuration;
-                      
-                      return {
-                        id: appointment.id,
-                        staffId: appointment.staffId,
-                        serviceId: appointment.serviceId,
-                        date: appointment.date,
-                        time: appointment.time,
-                        duration: appointmentDuration
-                      };
-                    });
-
-                    // Check if new staff is available on the currently selected date
-                    let isCurrentDateAvailable = false;
-                    
-                    if (value === 'any') {
-                      // Check if any staff is available on current date
-                      const availableStaff = getAvailableStaff();
-                      isCurrentDateAvailable = availableStaff.some(staffMember => 
-                        staffMember.schedule && isDateAvailable(new Date(bookingData.date), staffMember.schedule)
-                      );
-                    } else {
-                      // Check if specific staff is available on current date
-                      const selectedStaff = staff.find(s => s.id === value);
-                      if (selectedStaff?.schedule) {
-                        isCurrentDateAvailable = isDateAvailable(new Date(bookingData.date), selectedStaff.schedule);
-                        
-                        // Also check if they have available time slots
-                        if (isCurrentDateAvailable) {
-                          const availableSlots = getAvailableTimeSlotsForDate(
-                            new Date(bookingData.date),
-                            selectedStaff.schedule,
-                            totalServiceDuration,
-                            bookedAppointments,
-                            value
-                          );
-                          isCurrentDateAvailable = availableSlots.length > 0;
-                        }
-                      }
-                    }
-
-                    if (isCurrentDateAvailable) {
-                      // Staff is available on current date, keep the date but clear time
-                      setBookingData({ ...newBookingData, time: '' });
-                    } else {
-                      // Staff is not available on current date, find next available date
-                      let nextAvailableDate: Date | null = null;
-
-                      if (value === 'any') {
-                        const availableStaff = getAvailableStaff();
-                        const staffSchedules = availableStaff
-                          .map(s => s.schedule)
-                          .filter(schedule => schedule != null);
-                        
-                        if (staffSchedules.length > 0) {
-                          nextAvailableDate = findNextAvailableDate(
-                            new Date(bookingData.date),
-                            staffSchedules,
-                            totalServiceDuration,
-                            bookedAppointments
-                          );
-                        }
-                      } else {
-                        const selectedStaff = staff.find(s => s.id === value);
-                        if (selectedStaff?.schedule) {
-                          nextAvailableDate = findNextAvailableDate(
-                            new Date(bookingData.date),
-                            [selectedStaff.schedule],
-                            totalServiceDuration,
-                            bookedAppointments
-                          );
-                        }
-                      }
-
-                      if (nextAvailableDate) {
-                        setBookingData({ 
-                          ...newBookingData, 
-                          date: format(nextAvailableDate, 'yyyy-MM-dd'), 
-                          time: '' 
-                        });
-                        toast({
-                          title: "Date Updated",
-                          description: `Moved to next available date: ${format(nextAvailableDate, 'EEE, dd MMM')}`,
-                        });
-                      } else {
-                        // No available dates found, clear date and time
-                        setBookingData({ ...newBookingData, date: '', time: '' });
-                        toast({
-                          title: "No Available Dates",
-                          description: "This staff member has no available dates in the next 30 days.",
-                          variant: "destructive"
-                        });
-                      }
-                    }
-                  } else {
-                    // No date selected yet or same staff, just update staff and clear date/time if first selection
-                    if (!bookingData.date) {
-                      setBookingData({ ...newBookingData, date: '', time: '' });
-                    } else {
-                      setBookingData({ ...newBookingData, time: '' });
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="w-auto min-w-[200px] bg-gray-50 border-gray-200 rounded-full px-4">
-                  <User className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Any professional" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="any">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                        <User className="w-3 h-3 text-gray-500" />
-                      </div>
-                      <span>Any professional</span>
-                    </div>
-                  </SelectItem>
-                  {getAvailableStaff().map((staffMember) => (
-                    <SelectItem key={staffMember.id} value={staffMember.id}>
-                      <div className="flex items-center space-x-2">
-                        <Avatar className="w-6 h-6">
-                          {staffMember.avatar ? (
-                            <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
-                          ) : (
-                            <AvatarFallback 
-                              className="text-white font-semibold text-xs"
-                              style={{ backgroundColor: theme.primaryColor }}
-                            >
-                              {staffMember.name.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <span>{staffMember.name}</span>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      <div>
+                        <div className="font-medium">{location.name}</div>
+                        <div className="text-sm text-muted-foreground">{location.address}</div>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </CardContent>
+          </Card>
+        );
 
-              {/* Calendar Icon */}
-              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-10 w-10 p-0 rounded-lg border border-gray-200"
+      case 2:
+        const availableServices = services.filter(service => 
+          service.staffIds.some(staffId => 
+            staff.find(s => s.id === staffId)?.locations.includes(bookingData.location)
+          )
+        );
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Service</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {availableServices.map((service) => (
+                  <div
+                    key={service.id}
+                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                      bookingData.service === service.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setBookingData({ ...bookingData, service: service.id, staff: '' })}
                   >
-                    <CalendarIcon className="h-5 w-5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <CalendarComponent
-                    mode="single"
-                    selected={bookingData.date ? new Date(bookingData.date) : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        setBookingData({ ...bookingData, date: format(date, 'yyyy-MM-dd'), time: '' });
-                        setIsCalendarOpen(false);
-                      }
-                    }}
-                    disabled={(date) => {
-                      // Disable past dates and today - booking starts from tomorrow
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      if (date <= today) return true;
-                      
-                      // If specific staff selected, check their availability
-                      if (bookingData.staff !== 'any' && selectedStaffForTime?.schedule) {
-                        return !isDateAvailable(date, selectedStaffForTime.schedule);
-                      }
-                      
-                      // If "any staff" selected, check if any staff is available
-                      if (bookingData.staff === 'any') {
-                        const availableStaff = getAvailableStaff();
-                        return !availableStaff.some(staffMember => 
-                          staffMember.schedule && isDateAvailable(date, staffMember.schedule)
-                        );
-                      }
-                      
-                      return false;
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            {/* Horizontal Calendar */}
-            <div className="w-full">
-              <HorizontalCalendar
-                selectedDate={bookingData.date ? new Date(bookingData.date) : undefined}
-                onDateSelect={(date) => {
-                  setBookingData({ ...bookingData, date: format(date, 'yyyy-MM-dd'), time: '' });
-                }}
-                disabledDates={(date) => {
-                  // Disable past dates and today - booking starts from tomorrow
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  if (date <= today) return true;
-                  
-                  // If specific staff selected, check their availability
-                  if (bookingData.staff !== 'any' && selectedStaffForTime?.schedule) {
-                    return !isDateAvailable(date, selectedStaffForTime.schedule);
-                  }
-                  
-                  // If "any staff" selected, check if any staff is available
-                  if (bookingData.staff === 'any') {
-                    const availableStaff = getAvailableStaff();
-                    return !availableStaff.some(staffMember => 
-                      staffMember.schedule && isDateAvailable(date, staffMember.schedule)
-                    );
-                  }
-                  
-                  return false;
-                }}
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Available Times *</Label>
-              {bookingData.date ? (
-                finalAvailableSlots.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {finalAvailableSlots.map((timeSlot) => (
-                      <Button
-                        key={timeSlot}
-                        variant={bookingData.time === formatTimeSlot(timeSlot) ? "default" : "outline"}
-                        onClick={() => setBookingData({ ...bookingData, time: formatTimeSlot(timeSlot) })}
-                        className="h-10"
-                        style={{
-                          backgroundColor: bookingData.time === formatTimeSlot(timeSlot) ? theme.primaryColor : 'transparent',
-                          borderColor: bookingData.time === formatTimeSlot(timeSlot) ? theme.primaryColor : undefined
-                        }}
-                      >
-                        <Clock className="w-4 h-4 mr-2" />
-                        {formatTimeSlot(timeSlot)}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 space-y-4">
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Selected professional is fully booked on this date</h4>
-                      {(() => {
-                        // Find next available date
-                        const selectedService = services.find(s => s.id === bookingData.service);
-                        if (!selectedService) return null;
-                        
-                        const totalServiceDuration = selectedService.duration + 
-                          selectedExtras.reduce((total, extraId) => {
-                            const extra = selectedService.extras?.find(e => e.id === extraId);
-                            return total + (extra?.duration || 0);
-                          }, 0);
-
-                        // Get booked appointments for availability checking
-                        const bookedAppointments = appointments.map(appointment => {
-                          // Calculate appointment duration from service and extras
-                          const appointmentService = services.find(s => s.id === appointment.serviceId);
-                          const baseDuration = appointmentService?.duration || 60;
-                          const extrasDuration = appointment.selectedExtras.reduce((total, extraId) => {
-                            const extra = appointmentService?.extras?.find(e => e.id === extraId);
-                            return total + (extra?.duration || 0);
-                          }, 0);
-                          const appointmentDuration = baseDuration + extrasDuration;
-                          
-                          return {
-                            id: appointment.id,
-                            staffId: appointment.staffId,
-                            serviceId: appointment.serviceId,
-                            date: appointment.date,
-                            time: appointment.time,
-                            duration: appointmentDuration
-                          };
-                        });
-
-                        let nextAvailableDate: Date | null = null;
-
-                        if (bookingData.staff === 'any') {
-                          // Check all available staff for next available date
-                          const availableStaff = getAvailableStaff();
-                          const staffSchedules = availableStaff
-                            .map(s => s.schedule)
-                            .filter(schedule => schedule != null);
-                          
-                          if (staffSchedules.length > 0) {
-                            nextAvailableDate = findNextAvailableDate(
-                              new Date(bookingData.date),
-                              staffSchedules,
-                              totalServiceDuration,
-                              bookedAppointments
-                            );
-                          }
-                        } else {
-                          // Check specific staff member
-                          const selectedStaff = staff.find(s => s.id === bookingData.staff);
-                          if (selectedStaff?.schedule) {
-                            nextAvailableDate = findNextAvailableDate(
-                              new Date(bookingData.date),
-                              [selectedStaff.schedule],
-                              totalServiceDuration,
-                              bookedAppointments
-                            );
-                          }
-                        }
-                        
-                        if (nextAvailableDate) {
-                          const nextAvailableDateStr = format(nextAvailableDate, 'EEE, dd MMM');
-                          return (
-                            <p className="text-sm text-gray-500">Available from {nextAvailableDateStr}</p>
-                          );
-                        } else {
-                          return (
-                            <p className="text-sm text-gray-500">No available dates in the next 30 days</p>
-                          );
-                        }
-                      })()}
-                    </div>
-                    
-                    <div className="flex gap-3 justify-center">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          // Find and go to next available date
-                          const selectedService = services.find(s => s.id === bookingData.service);
-                          if (!selectedService) return;
-                          
-                          const totalServiceDuration = selectedService.duration + 
-                            selectedExtras.reduce((total, extraId) => {
-                              const extra = selectedService.extras?.find(e => e.id === extraId);
-                              return total + (extra?.duration || 0);
-                            }, 0);
-
-                          // Get booked appointments for availability checking
-                          const bookedAppointments = appointments.map(appointment => {
-                            const appointmentService = services.find(s => s.id === appointment.serviceId);
-                            const baseDuration = appointmentService?.duration || 60;
-                            const extrasDuration = appointment.selectedExtras.reduce((total, extraId) => {
-                              const extra = appointmentService?.extras?.find(e => e.id === extraId);
-                              return total + (extra?.duration || 0);
-                            }, 0);
-                            const appointmentDuration = baseDuration + extrasDuration;
-                            
-                            return {
-                              id: appointment.id,
-                              staffId: appointment.staffId,
-                              serviceId: appointment.serviceId,
-                              date: appointment.date,
-                              time: appointment.time,
-                              duration: appointmentDuration
-                            };
-                          });
-
-                          let nextAvailableDate: Date | null = null;
-
-                          if (bookingData.staff === 'any') {
-                            // Check all available staff for next available date
-                            const availableStaff = getAvailableStaff();
-                            const staffSchedules = availableStaff
-                              .map(s => s.schedule)
-                              .filter(schedule => schedule != null);
-                            
-                            if (staffSchedules.length > 0) {
-                              nextAvailableDate = findNextAvailableDate(
-                                new Date(bookingData.date),
-                                staffSchedules,
-                                totalServiceDuration,
-                                bookedAppointments
-                              );
-                            }
-                          } else {
-                            // Check specific staff member
-                            const selectedStaff = staff.find(s => s.id === bookingData.staff);
-                            if (selectedStaff?.schedule) {
-                              nextAvailableDate = findNextAvailableDate(
-                                new Date(bookingData.date),
-                                [selectedStaff.schedule],
-                                totalServiceDuration,
-                                bookedAppointments
-                              );
-                            }
-                          }
-                          
-                          if (nextAvailableDate) {
-                            setBookingData({ 
-                              ...bookingData, 
-                              date: format(nextAvailableDate, 'yyyy-MM-dd'), 
-                              time: '' 
-                            });
-                          } else {
-                            toast({
-                              title: "No Available Dates",
-                              description: "No available dates found in the next 30 days.",
-                              variant: "destructive"
-                            });
-                          }
-                        }}
-                        className="px-4 py-2"
-                      >
-                        Go to next available date
-                      </Button>
-                      
-                      <Button 
-                        variant="outline"
-                        onClick={() => {
-                          toast({
-                            title: "Join Waitlist",
-                            description: "Waitlist functionality coming soon!",
-                          });
-                        }}
-                        className="px-4 py-2"
-                      >
-                        Join waitlist
-                      </Button>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-medium">{service.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="font-semibold">{formatPrice(service.price)}</div>
+                        <div className="text-sm text-muted-foreground">{service.duration} min</div>
+                      </div>
                     </div>
                   </div>
-                )
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Please select a date first.</p>
-                </div>
-              )}
-            </div>
-            
-            {selectedServiceForTime && (
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  <strong>Service Duration:</strong> {totalServiceDuration} minutes
-                  {selectedExtras.length > 0 && (
-                    <span className="block mt-1">
-                      (Base: {selectedServiceForTime.duration * (1 + additionalGuests)} min + Extras: {(totalServiceDuration / (1 + additionalGuests) - selectedServiceForTime.duration) * (1 + additionalGuests)} min)
-                    </span>
-                  )}
-                </p>
+                ))}
               </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 3:
+        const selectedService = services.find(s => s.id === bookingData.service);
+        if (!selectedService?.extras || selectedService.extras.length === 0) {
+          return <div>No extras available for this service.</div>;
+        }
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Service Extras</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {selectedService.extras.map((extra) => (
+                  <div key={extra.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+                    <Checkbox
+                      id={extra.id}
+                      checked={selectedExtras.includes(extra.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedExtras([...selectedExtras, extra.id]);
+                        } else {
+                          setSelectedExtras(selectedExtras.filter(id => id !== extra.id));
+                        }
+                      }}
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor={extra.id} className="font-medium cursor-pointer">
+                        {extra.name}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">{extra.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold">{formatPrice(extra.price)}</div>
+                      <div className="text-sm text-muted-foreground">+{extra.duration} min</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 4:
+        const availableStaff = getAvailableStaff();
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Select Staff Member
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {availableStaff.map((staffMember) => (
+                  <div
+                    key={staffMember.id}
+                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                      bookingData.staff === staffMember.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setBookingData({ ...bookingData, staff: staffMember.id })}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <Avatar>
+                        <AvatarImage src={staffMember.avatar} />
+                        <AvatarFallback>
+                          {staffMember.name.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-medium">{staffMember.name}</h3>
+                        <p className="text-sm text-muted-foreground">{staffMember.role}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 5:
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Select Date & Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <Label htmlFor="date">Select Date</Label>
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !bookingData.date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {bookingData.date ? format(new Date(bookingData.date), 'PPP') : 'Pick a date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <HorizontalCalendar
+                        selectedDate={bookingData.date ? new Date(bookingData.date) : undefined}
+                        onDateSelect={(date) => {
+                          setBookingData({ ...bookingData, date: format(date, 'yyyy-MM-dd'), time: '' });
+                          setIsCalendarOpen(false);
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {bookingData.date && (
+                  <div>
+                    <Label htmlFor="time">Select Time</Label>
+                    <Select
+                      value={bookingData.time}
+                      onValueChange={(value) => setBookingData({ ...bookingData, time: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(() => {
+                          const selectedStaff = staff.find(s => s.id === bookingData.staff);
+                          const selectedSvc = services.find(s => s.id === bookingData.service);
+                          if (!selectedStaff || !selectedSvc) return [];
+
+                          const availableSlots = getAvailableTimeSlotsForDate(
+                            new Date(bookingData.date),
+                            selectedStaff.schedule,
+                            selectedSvc.duration,
+                            appointments.map(apt => ({
+                              id: apt.id,
+                              staffId: apt.staffId,
+                              serviceId: apt.serviceId,
+                              date: apt.date,
+                              time: apt.time,
+                              duration: services.find(s => s.id === apt.serviceId)?.duration || 60
+                            })),
+                            bookingData.staff
+                          );
+
+                          return availableSlots.map(slot => (
+                            <SelectItem key={slot} value={slot}>
+                              {formatTimeSlot(slot)}
+                            </SelectItem>
+                          ));
+                        })()}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         );
 
       case 6:
-        const selectedServiceForForm = services.find(s => s.id === bookingData.service);
-        
-        // Get all forms - first visit form first, then other applicable forms
-        const firstVisitForm = serviceForms.find(form => form.id === 'first-visit-form');
-        const otherApplicableForms = serviceForms.filter(form => {
-          if (form.id === 'first-visit-form') return false; // Skip first visit form here
-          
-          // Check if form applies to all services
-          if (form.services === 'All Services' || form.services === 'all') {
-            return true;
-          }
-          
-          // Check if form applies to the selected service's category
-          if (selectedServiceForForm && form.services) {
-            const serviceCategoryLower = selectedServiceForForm.category.toLowerCase();
-            const formServicesLower = form.services.toLowerCase();
-            return serviceCategoryLower === formServicesLower;
-          }
-          
-          return false;
-        });
-
-        // Combine forms in order: first visit form first, then others
-        const allApplicableForms = [];
-        if (firstVisitForm) allApplicableForms.push(firstVisitForm);
-        allApplicableForms.push(...otherApplicableForms);
-
         return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Customer Information</h3>
-            
-            <div className="space-y-6">
-              {allApplicableForms.length > 0 ? (
-                allApplicableForms.map((form, formIndex) => {
-                  // Load form elements from localStorage
-                  let formElements: any[] = [];
-                  const savedFormElements = localStorage.getItem(`customForm_${form.id}`);
-                  if (savedFormElements) {
-                    try {
-                      formElements = JSON.parse(savedFormElements);
-                    } catch (error) {
-                      console.error('Error parsing form elements:', error);
-                    }
-                  }
-
-                  if (formElements.length === 0) return null;
-
-                  return (
-                    <div key={form.id} className="space-y-4">
-                      {formIndex > 0 && <hr className="border-gray-200" />}
-                      
-                      {formElements.map((element: any) => (
-                        <InteractiveFormRenderer
-                          key={element.id}
-                          element={element}
-                          value={customFormData[element.id]}
-                          onChange={(value) => setCustomFormData({
-                            ...customFormData,
-                            [element.id]: value
-                          })}
-                          formValues={customFormData}
-                          allElements={formElements}
-                          onDynamicFieldChange={(fieldId, value) => setDynamicFieldValues({
-                            ...dynamicFieldValues,
-                            [fieldId]: value
-                          })}
-                          dynamicFieldValues={dynamicFieldValues}
-                        />
-                      ))}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No custom forms available for this service.</p>
-                  <p className="text-sm text-gray-400 mt-2">Please create a custom form in the Custom Forms section.</p>
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="customerName">Full Name *</Label>
+                    <Input
+                      id="customerName"
+                      value={bookingData.customerName}
+                      onChange={(e) => setBookingData({ ...bookingData, customerName: e.target.value })}
+                      placeholder="Enter your full name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="customerEmail">Email *</Label>
+                    <Input
+                      id="customerEmail"
+                      type="email"
+                      value={bookingData.customerEmail}
+                      onChange={(e) => setBookingData({ ...bookingData, customerEmail: e.target.value })}
+                      placeholder="Enter your email"
+                      required
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
+                <div>
+                  <Label htmlFor="customerPhone">Phone</Label>
+                  <Input
+                    id="customerPhone"
+                    type="tel"
+                    value={bookingData.customerPhone}
+                    onChange={(e) => setBookingData({ ...bookingData, customerPhone: e.target.value })}
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={bookingData.notes}
+                    onChange={(e) => setBookingData({ ...bookingData, notes: e.target.value })}
+                    placeholder="Any additional notes or special requests"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         );
 
       case 7:
-        const selectedServiceData = services.find(s => s.id === bookingData.service);
-        const selectedStaffData = staff.find(s => s.id === bookingData.staff);
-        const selectedLocationData = locations.find(l => l.id === bookingData.location);
-        
-        // Find applicable custom form for step 7
-        const applicableFormStep7 = serviceForms.find(form => {
-          if (form.services === 'All Services' || form.services === 'all') {
-            return true;
-          }
-          if (selectedServiceData && form.services) {
-            const serviceCategoryLower = selectedServiceData.category.toLowerCase();
-            const formServicesLower = form.services.toLowerCase();
-            return serviceCategoryLower === formServicesLower;
-          }
-          return false;
-        });
-        
-        const total = calculateTotal();
-        const applicableTaxes = taxes.filter(tax => 
-          tax.enabled && 
-          (tax.locationsFilter === 'all-locations' || tax.locationsFilter === bookingData.location) &&
-          (tax.servicesFilter === 'all-services' || tax.servicesFilter === bookingData.service)
-        );
-
-        return (
-          <div className="space-y-6 max-w-2xl mx-auto">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Confirm Details</h3>
-            
-            {/* Booking Summary Header */}
-            <div 
-              className="p-4 rounded-lg"
-              style={{ backgroundColor: `${theme.primaryColor}20` }}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span 
-                    className="font-medium"
-                    style={{ color: theme.primaryColor }}
-                  >Location: </span>
-                  <span className="font-bold text-gray-900">{locations.find(l => l.id === bookingData.location)?.name}</span>
-                </div>
-                <div>
-                  <span 
-                    className="font-medium"
-                    style={{ color: theme.primaryColor }}
-                  >Service: </span>
-                  <span className="font-bold text-gray-900">{selectedServiceData?.name}</span>
-                </div>
-                {selectedExtras.length > 0 && (
-                  <div>
-                    <span 
-                      className="font-medium"
-                      style={{ color: theme.primaryColor }}
-                    >Extra Service: </span>
-                    <span className="font-bold text-gray-900">
-                      {selectedExtras.map(extraId => {
-                        const extra = selectedServiceData?.extras?.find(e => e.id === extraId);
-                        return extra?.name;
-                      }).join(', ')}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <span 
-                    className="font-medium"
-                    style={{ color: theme.primaryColor }}
-                  >Staff: </span>
-                  <span className="font-bold text-gray-900">
-                    {bookingData.staff === 'any' ? 'Any Available' : staff.find(s => s.id === bookingData.staff)?.name}
-                  </span>
-                </div>
-                <div>
-                  <span 
-                    className="font-medium"
-                    style={{ color: theme.primaryColor }}
-                  >Date & Time: </span>
-                  <span className="font-bold text-gray-900">
-                    {bookingData.date ? format(new Date(bookingData.date), 'EEEE dd MMMM yyyy') : ''} / {(() => {
-                      console.log('Confirm Details - Time calculation debug:', {
-                        bookingDataTime: bookingData.time,
-                        selectedServiceData: selectedServiceData,
-                        selectedExtras: selectedExtras,
-                        additionalGuests: additionalGuests
-                      });
-                      
-                      if (!bookingData.time || !selectedServiceData?.duration) {
-                        console.log('Confirm Details - Early return: missing time or duration');
-                        return bookingData.time;
-                      }
-                      
-                      try {
-                        // Validate time format (should be HH:mm)
-                        console.log('Confirm Details - Time format test:', !/^\d{1,2}:\d{2}$/.test(bookingData.time));
-                        if (!/^\d{1,2}:\d{2}$/.test(bookingData.time)) {
-                          console.log('Confirm Details - Invalid time format');
-                          return bookingData.time;
-                        }
-                        
-                        // Calculate total duration including extras and group booking
-                        let totalDuration = selectedServiceData.duration;
-                        selectedExtras.forEach(extraId => {
-                          const extra = selectedServiceData.extras?.find(e => e.id === extraId);
-                          if (extra) totalDuration += extra.duration || 30;
-                        });
-                        const durationMultiplier = 1 + additionalGuests;
-                        totalDuration *= durationMultiplier;
-                        
-                        console.log('Confirm Details - Total duration calculated:', totalDuration);
-                        
-                        // Parse start time and calculate end time
-                        const startTime = parse(bookingData.time, 'HH:mm', new Date());
-                        
-                        // Check if parsing was successful
-                        if (!isValid(startTime)) {
-                          console.log('Confirm Details - Invalid parsed time');
-                          return bookingData.time;
-                        }
-                        
-                        const endTime = addMinutes(startTime, totalDuration);
-                        const result = `${bookingData.time} - ${format(endTime, 'HH:mm')}`;
-                        
-                        console.log('Confirm Details - Final result:', result);
-                        return result;
-                      } catch (error) {
-                        console.log('Confirm Details - Error caught:', error);
-                        // Return original time if any error occurs
-                        return bookingData.time;
-                      }
-                    })()}
-                  </span>
-                </div>
-                {selectedServiceData?.duration && (
-                  <div>
-                    <span 
-                      className="font-medium"
-                      style={{ color: theme.primaryColor }}
-                    >Duration: </span>
-                    <span className="font-bold text-gray-900">
-                      {(() => {
-                        let totalDuration = selectedServiceData.duration;
-                        selectedExtras.forEach(extraId => {
-                          const extra = selectedServiceData.extras?.find(e => e.id === extraId);
-                          if (extra) totalDuration += extra.duration || 30;
-                        });
-                        // Apply group booking multiplier
-                        const durationMultiplier = 1 + additionalGuests;
-                        return totalDuration * durationMultiplier;
-                      })()} minutes
-                    </span>
-                  </div>
-                )}
-                {additionalGuests > 0 && (
-                  <div>
-                    <span 
-                      className="font-medium"
-                      style={{ color: theme.primaryColor }}
-                    >Additional Guests: </span>
-                    <span className="font-bold text-gray-900">
-                      {additionalGuests} guest{additionalGuests > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Service Details and Pricing */}
-            <Card className="shadow-lg">
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {/* Service with Price */}
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-lg font-medium text-gray-900">
-                      {selectedServiceData?.name}
-                      {additionalGuests > 0 && (
-                        <span className="text-sm text-gray-500 ml-2">
-                          x{1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
-                        </span>
-                      )}
-                    </span>
-                     <span className="text-lg font-bold text-green-600">
-                       {formatPrice((selectedServiceData?.price || 0) * (1 + additionalGuests))}
-                     </span>
-                  </div>
-                  
-                  {/* Extras */}
-                  {selectedExtras.length > 0 && selectedExtras.map(extraId => {
-                    const extra = selectedServiceData?.extras?.find(e => e.id === extraId);
-                    return extra ? (
-                      <div key={extra.id} className="flex justify-between items-center py-1 text-gray-600">
-                        <span>
-                          {extra.name}
-                          {additionalGuests > 0 && (
-                            <span className="text-sm text-gray-500 ml-2">
-                              x{1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-green-600">+{formatPrice(extra.price * (1 + additionalGuests))}</span>
-                      </div>
-                    ) : null;
-                  })}
-
-                  {/* Tax */}
-                  {applicableTaxes.length > 0 && (
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-red-600 font-medium">TAX</span>
-                      <span className="text-red-600 font-bold">+${applicableTaxes.reduce((total, tax) => 
-                        total + ((selectedServiceData?.price || 0) + selectedExtras.reduce((extraTotal, extraId) => {
-                          const extra = selectedServiceData?.extras?.find(e => e.id === extraId);
-                          return extraTotal + (extra?.price || 0);
-                        }, 0)) * tax.amount / 100, 0).toFixed(2)}</span>
-                    </div>
-                  )}
-
-                  {/* Discount */}
-                  {(availableCoupon || availableGiftcard) && (
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-orange-600 font-medium">Discount</span>
-                      <span className="text-orange-600 font-bold">-${calculateDiscountAmount().toFixed(2)}</span>
-                    </div>
-                  )}
-                </div>
-
-
-                {/* Coupon Input */}
-                <div className="mt-6">
-                  <div className="flex space-x-2">
-                    <Input
-                      value={bookingData.couponCode}
-                      onChange={(e) => setBookingData({ ...bookingData, couponCode: e.target.value })}
-                      placeholder="Coupon"
-                      className="flex-1"
-                    />
-                    <Button 
-                      onClick={handleCouponValidation}
-                      style={{ backgroundColor: theme.completedColor }}
-                      className="hover:opacity-90 text-white px-6"
-                    >
-                      OK
-                    </Button>
-                  </div>
-                  
-                  {/* Gift Card Input */}
-                  <div className="flex space-x-2 mt-2">
-                    <Input
-                      value={giftcardCode}
-                      onChange={(e) => setGiftcardCode(e.target.value)}
-                      placeholder="Gift Card Code"
-                      className="flex-1"
-                    />
-                    <Button 
-                      onClick={handleGiftcardValidation}
-                      style={{ backgroundColor: theme.completedColor }}
-                      className="hover:opacity-90 text-white px-6"
-                    >
-                      OK
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Total Price */}
-                <div 
-                  className="mt-6 rounded-lg p-4"
-                  style={{ backgroundColor: `${theme.completedColor}20` }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span 
-                      className="text-lg font-medium"
-                      style={{ color: theme.completedColor }}
-                    >Total price</span>
-                    <span 
-                      className="text-2xl font-bold"
-                      style={{ color: theme.completedColor }}
-                    >{formatPrice(total)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        );
-
-      case 8:
         const finalService = services.find(s => s.id === bookingData.service);
-        const finalLocation = locations.find(l => l.id === bookingData.location);
         const finalStaff = staff.find(s => s.id === bookingData.staff);
-        const finalTotal = calculateTotal();
-        
-        return (
-          <div className="space-y-6 max-w-2xl mx-auto text-center">
-            {/* Success Icon and Message */}
-            <div className="space-y-4">
-              <div 
-                className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-green-100"
-              >
-                <CheckCircle 
-                  className="w-8 h-8 text-green-600"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <h2 
-                  className="text-2xl font-bold text-black"
-                >Booking Confirmed!</h2>
-                <p className="text-gray-600">Your appointment has been successfully booked</p>
-              </div>
-            </div>
+        const finalLocation = locations.find(l => l.id === bookingData.location);
 
-            {/* Appointment Details */}
-            <div 
-              className="rounded-lg p-6 text-left"
-              style={{ backgroundColor: `${theme.completedColor}15` }}
-            >
-              <h3 className="text-xl font-bold text-center mb-6">Appointment Details</h3>
-              
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Confirm Your Booking</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
-                <div className="text-center">
-                  <h4 className="text-lg font-semibold">{finalService?.name}</h4>
-                  <p className="text-gray-600">{bookingData.date} at {(() => {
-                    console.log('Confirmation - Time calculation debug:', {
-                      bookingDataTime: bookingData.time,
-                      finalService: finalService,
-                      selectedExtras: selectedExtras,
-                      additionalGuests: additionalGuests
-                    });
-                    
-                    if (!bookingData.time || !finalService?.duration) {
-                      console.log('Confirmation - Early return: missing time or duration');
-                      return bookingData.time;
-                    }
-                    
-                    try {
-                      // Validate time format (should be HH:mm)
-                      console.log('Confirmation - Time format test:', !/^\d{1,2}:\d{2}$/.test(bookingData.time));
-                      if (!/^\d{1,2}:\d{2}$/.test(bookingData.time)) {
-                        console.log('Confirmation - Invalid time format');
-                        return bookingData.time;
-                      }
-                      
-                      // Calculate total duration including extras and group booking
-                      let totalDuration = finalService.duration;
-                      selectedExtras.forEach(extraId => {
-                        const extra = finalService.extras?.find(e => e.id === extraId);
-                        if (extra) totalDuration += extra.duration || 30;
-                      });
-                      const durationMultiplier = 1 + additionalGuests;
-                      totalDuration *= durationMultiplier;
-                      
-                      console.log('Confirmation - Total duration calculated:', totalDuration);
-                      
-                      // Parse start time and calculate end time
-                      const startTime = parse(bookingData.time, 'HH:mm', new Date());
-                      
-                      // Check if parsing was successful
-                      if (!isValid(startTime)) {
-                        console.log('Confirmation - Invalid parsed time');
-                        return bookingData.time;
-                      }
-                      
-                      const endTime = addMinutes(startTime, totalDuration);
-                      const result = `${bookingData.time} - ${format(endTime, 'HH:mm')}`;
-                      
-                      console.log('Confirmation - Final result:', result);
-                      return result;
-                    } catch (error) {
-                      console.log('Confirmation - Error caught:', error);
-                      // Return original time if any error occurs
-                      return bookingData.time;
-                    }
-                  })()}</p>
-                  <p className="text-gray-600">{finalLocation?.name}</p>
-                  {finalStaff && finalStaff.id !== 'any' && (
-                    <p className="text-gray-600">with {finalStaff.name}</p>
-                  )}
-                  {additionalGuests > 0 && (
-                    <p className="text-gray-600">For you + {additionalGuests} additional guest{additionalGuests > 1 ? 's' : ''}</p>
-                  )}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold mb-2">Service Details</h3>
+                    <p><strong>Service:</strong> {finalService?.name}</p>
+                    <p><strong>Duration:</strong> {finalService?.duration} minutes</p>
+                    <p><strong>Price:</strong> {formatPrice(finalService?.price || 0)}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-2">Appointment Details</h3>
+                    <p><strong>Date:</strong> {bookingData.date ? format(new Date(bookingData.date), 'PPP') : ''}</p>
+                    <p><strong>Time:</strong> {formatTimeSlot(bookingData.time)}</p>
+                    <p><strong>Staff:</strong> {finalStaff?.name}</p>
+                    <p><strong>Location:</strong> {finalLocation?.name}</p>
+                  </div>
                 </div>
                 
-                <div className="text-center">
-                  <p 
-                    className="text-3xl font-bold"
-                    style={{ color: theme.completedColor }}
-                  >${finalTotal.toFixed(2)}</p>
+                {selectedExtras.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Selected Extras</h3>
+                    {selectedExtras.map(extraId => {
+                      const extra = finalService?.extras?.find(e => e.id === extraId);
+                      return extra ? (
+                        <p key={extraId}>{extra.name} - {formatPrice(extra.price)}</p>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center text-lg font-semibold">
+                    <span>Total:</span>
+                    <span>{formatPrice(calculateTotal())}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-
-
-            {/* Confirmation Message */}
-            <div className="text-center text-gray-600">
-              <p>A confirmation email has been sent to {bookingData.customerEmail}. You will receive a reminder 24 hours before your appointment.</p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-center items-center gap-4 mt-8">
-              <span className="text-gray-600">Add to calendar</span>
-              <div className="flex gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => {
-                    const startDate = new Date(`${bookingData.date}T${bookingData.time}`);
-                    const endDate = new Date(startDate.getTime() + (finalService?.duration || 60) * 60000);
-                    const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(finalService?.name || 'Appointment')}&dates=${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=${encodeURIComponent(`Appointment with ${theme.businessName}`)}`;
-                    window.open(googleUrl, '_blank');
-                  }}
-                  className="h-10 w-10 p-1 hover:bg-gray-100 rounded-lg"
-                  title="Add to Google Calendar"
-                >
-                  <img 
-                    src="/lovable-uploads/23ced204-643c-4892-93e0-5298c2eefa5f.png" 
-                    alt="Google Calendar" 
-                    className="w-full h-full object-contain rounded"
-                  />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => {
-                    const startDate = new Date(`${bookingData.date}T${bookingData.time}`);
-                    const endDate = new Date(startDate.getTime() + (finalService?.duration || 60) * 60000);
-                    const outlookUrl = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(finalService?.name || 'Appointment')}&startdt=${startDate.toISOString()}&enddt=${endDate.toISOString()}&body=${encodeURIComponent(`Appointment with ${theme.businessName}`)}`;
-                    window.open(outlookUrl, '_blank');
-                  }}
-                  className="h-10 w-10 p-1 hover:bg-gray-100 rounded-lg"
-                  title="Add to Microsoft Outlook"
-                >
-                  <img 
-                    src="/lovable-uploads/00503310-62db-4ba2-b071-0a966f4ac6bd.png" 
-                    alt="Microsoft Outlook" 
-                    className="w-full h-full object-contain rounded"
-                  />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex justify-center mt-6">
-              <Button 
-                variant="outline" 
-                className="px-8"
-                onClick={() => window.location.href = '/customer-portal'}
-              >
-                See My bookings
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         );
 
       default:
         return null;
     }
-  };
+  }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-      <div className="w-full">
-        {/* Progress Bar */}
-        {theme.showBookingProcess && (
-          <div className="bg-white border-b">
-            <div className="max-w-4xl mx-auto px-4 py-4">
-              <div className="flex items-center justify-between">
-                {steps.filter(step => step !== 'Service Extras' && (step !== 'Location' || locations.length > 1)).map((step, index) => {
-                  // Calculate the actual step number considering the hidden steps
-                  const actualIndex = steps.indexOf(step);
-                  const displayNumber = actualIndex > 2 ? index + 1 : index + 1;
-                  
-                  return (
-                    <div key={step} className="flex items-center">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white`}
-                        style={{
-                          backgroundColor: actualIndex + 1 <= currentStep ? (actualIndex + 1 === currentStep ? theme.activeColor : theme.completedColor) : '#e5e7eb'
-                        }}
-                      >
-                        {displayNumber}
-                      </div>
-                      <span className="ml-2 text-sm font-medium hidden md:inline">{step}</span>
-                      {index < steps.filter(s => s !== 'Service Extras' && (s !== 'Location' || locations.length > 1)).length - 1 && (
-                        <div className="w-8 h-0.5 bg-gray-200 mx-4 hidden md:block" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="max-w-2xl mx-auto px-4 py-8">
+  // Group booking step renderer
+  function renderGroupBookingSteps() {
+    switch (groupCurrentStep) {
+      case 1:
+        return (
           <Card>
-            <CardContent className="p-6">
-              {renderStepContent()}
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Select Location
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={groupBookingData.location}
+                onValueChange={(value) => setGroupBookingData({ ...groupBookingData, location: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      <div>
+                        <div className="font-medium">{location.name}</div>
+                        <div className="text-sm text-muted-foreground">{location.address}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
+        );
 
-          {/* Navigation Buttons */}
-          {currentStep < 8 && (
-            <div className="flex justify-between mt-6">
-              {currentStep > (locations.length === 1 ? 2 : 1) && (
-                <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
-                  Back
-                </Button>
-              )}
-              <div className="ml-auto">
-                {currentStep < 7 ? (
-                  <Button 
-                    onClick={handleNext}
-                    disabled={!validateStep() || isSubmitting}
-                    style={{ backgroundColor: theme.primaryColor }}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={handleBookingSubmit} 
-                    disabled={isSubmitting}
-                    style={{ backgroundColor: theme.activeColor }}
-                  >
-                    {isSubmitting ? 'Processing...' : 'Confirm Booking'}
-                  </Button>
+      case 2:
+        const primaryMember = groupMembers.find(m => m.isPrimary) || groupMembers[0];
+        return (
+          <GroupBookingManager
+            locationId={groupBookingData.location}
+            primaryMember={primaryMember}
+            members={groupMembers}
+            onMembersChange={setGroupMembers}
+            onSameStaffChange={setSameStaff}
+            sameStaff={sameStaff}
+          />
+        );
+
+      case 3:
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Select Date & Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <Label htmlFor="groupDate">Select Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !groupBookingData.date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {groupBookingData.date ? format(new Date(groupBookingData.date), 'PPP') : 'Pick a date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={groupBookingData.date ? new Date(groupBookingData.date) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setGroupBookingData({ 
+                              ...groupBookingData, 
+                              date: format(date, 'yyyy-MM-dd'), 
+                              time: '' 
+                            });
+                          }
+                        }}
+                        disabled={(date) => date < new Date()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {groupBookingData.date && (
+                  <div>
+                    <Label htmlFor="groupTime">Select Time</Label>
+                    <Select
+                      value={groupBookingData.time}
+                      onValueChange={(value) => setGroupBookingData({ ...groupBookingData, time: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(() => {
+                          // Create staff-service pairs for availability checking
+                          const staffServicePairs: StaffServicePair[] = groupMembers
+                            .filter(m => m.serviceId && (sameStaff || m.staffId))
+                            .map(member => ({
+                              staffId: sameStaff ? groupMembers[0].staffId : member.staffId,
+                              serviceId: member.serviceId,
+                              duration: services.find(s => s.id === member.serviceId)?.duration || 60,
+                              memberId: member.id
+                            }));
+
+                          if (staffServicePairs.length === 0) return [];
+
+                          // Get staff schedules
+                          const staffSchedules: Record<string, any> = {};
+                          staffServicePairs.forEach(pair => {
+                            const staffMember = staff.find(s => s.id === pair.staffId);
+                            if (staffMember && staffMember.schedule) {
+                              staffSchedules[pair.staffId] = staffMember.schedule;
+                            }
+                          });
+
+                          const availableSlots = getGroupAvailableTimeSlots(
+                            new Date(groupBookingData.date),
+                            staffServicePairs,
+                            staffSchedules,
+                            appointments.map(apt => ({
+                              id: apt.id,
+                              staffId: apt.staffId,
+                              serviceId: apt.serviceId,
+                              date: apt.date,
+                              time: apt.time,
+                              duration: services.find(s => s.id === apt.serviceId)?.duration || 60
+                            })),
+                            sameStaff
+                          );
+
+                          return availableSlots.map(slot => (
+                            <SelectItem key={slot} value={slot}>
+                              {formatTimeSlot(slot)}
+                            </SelectItem>
+                          ));
+                        })()}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 )}
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+            </CardContent>
+          </Card>
+        );
+
+      case 4:
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div>
+                <Label htmlFor="groupNotes">Notes</Label>
+                <Textarea
+                  id="groupNotes"
+                  value={groupBookingData.notes}
+                  onChange={(e) => setGroupBookingData({ ...groupBookingData, notes: e.target.value })}
+                  placeholder="Any additional notes for the group booking"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 5:
+        const finalLocation = locations.find(l => l.id === groupBookingData.location);
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Confirm Group Booking</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Booking Details</h3>
+                  <p><strong>Date:</strong> {groupBookingData.date ? format(new Date(groupBookingData.date), 'PPP') : ''}</p>
+                  <p><strong>Time:</strong> {formatTimeSlot(groupBookingData.time)}</p>
+                  <p><strong>Location:</strong> {finalLocation?.name}</p>
+                  <p><strong>Staff Assignment:</strong> {sameStaff ? 'Same staff for all members' : 'Individual staff selection'}</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Group Members ({groupMembers.length})</h3>
+                  <div className="space-y-2">
+                    {groupMembers.map((member, index) => {
+                      const service = services.find(s => s.id === member.serviceId);
+                      const staffMember = staff.find(s => s.id === (sameStaff ? groupMembers[0].staffId : member.staffId));
+                      return (
+                        <div key={member.id} className="p-3 border rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{member.name} {member.isPrimary && '(Primary)'}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {service?.name} • {service?.duration} min • {staffMember?.name}
+                              </p>
+                            </div>
+                            <p className="font-semibold">{formatPrice(service?.price || 0)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center text-lg font-semibold">
+                    <span>Total Group Price:</span>
+                    <span>{formatPrice(calculateGroupTotal())}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        return null;
+    }
+  }
 };
 
 export default BookingPage;
