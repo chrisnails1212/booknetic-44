@@ -85,6 +85,7 @@ const BookingPage = () => {
     'Location',
     'Service',
     'Service Extras',
+    'Guest Service Extras',
     'Staff', 
     'Date & Time',
     'Information',
@@ -134,9 +135,12 @@ const BookingPage = () => {
     });
 
     // Add guest service extras
-    Object.values(guestServiceExtras).forEach(guestExtras => {
+    Object.entries(guestServiceExtras).forEach(([guestIndex, guestExtras]) => {
+      const guestServiceId = guestServices[parseInt(guestIndex)];
+      const guestService = services.find(s => s.id === guestServiceId);
+      
       guestExtras.forEach(extraId => {
-        const extra = selectedService.extras?.find(e => e.id === extraId);
+        const extra = guestService?.extras?.find(e => e.id === extraId);
         if (extra) subtotal += extra.price;
       });
     });
@@ -181,9 +185,12 @@ const BookingPage = () => {
     });
 
     // Add guest service extras
-    Object.values(guestServiceExtras).forEach(guestExtras => {
+    Object.entries(guestServiceExtras).forEach(([guestIndex, guestExtras]) => {
+      const guestServiceId = guestServices[parseInt(guestIndex)];
+      const guestService = services.find(s => s.id === guestServiceId);
+      
       guestExtras.forEach(extraId => {
-        const extra = selectedService.extras?.find(e => e.id === extraId);
+        const extra = guestService?.extras?.find(e => e.id === extraId);
         if (extra) subtotal += extra.price;
       });
     });
@@ -227,10 +234,12 @@ const BookingPage = () => {
       case 3:
         return true; // Service extras step - no required selection
       case 4:
-        return bookingData.staff !== '';
+        return true; // Guest service extras step - no required selection
       case 5:
-        return bookingData.date !== '' && bookingData.time !== '';
+        return bookingData.staff !== '';
       case 6:
+        return bookingData.date !== '' && bookingData.time !== '';
+      case 7:
         // Validate only custom form fields
         const selectedServiceForValidation = services.find(s => s.id === bookingData.service);
         const applicableFormForValidation = serviceForms.find(form => {
@@ -283,7 +292,19 @@ const BookingPage = () => {
       if (currentStep === 2) { // Coming from Service selection
         const selectedService = services.find(s => s.id === bookingData.service);
         if (!selectedService?.extras || selectedService.extras.length === 0) {
-          nextStep = 4; // Skip to Staff selection
+          nextStep = 4; // Skip to Guest Service Extras step
+        }
+      }
+      
+      // Skip Guest Service Extras step if no guests have services with extras
+      if (currentStep === 3) { // Coming from Service Extras
+        const hasGuestServiceExtras = Object.values(guestServices).some(guestServiceId => {
+          const guestService = services.find(s => s.id === guestServiceId);
+          return guestService?.extras && guestService.extras.length > 0;
+        });
+        
+        if (!bringPeopleEnabled || !hasGuestServiceExtras) {
+          nextStep = 5; // Skip to Staff selection
         }
       }
       
@@ -302,8 +323,20 @@ const BookingPage = () => {
     if (currentStep > minStep) {
       let previousStep = currentStep - 1;
       
+      // Skip Guest Service Extras step when going back if no guests have services with extras
+      if (currentStep === 5) { // Going back from Staff selection
+        const hasGuestServiceExtras = Object.values(guestServices).some(guestServiceId => {
+          const guestService = services.find(s => s.id === guestServiceId);
+          return guestService?.extras && guestService.extras.length > 0;
+        });
+        
+        if (!bringPeopleEnabled || !hasGuestServiceExtras) {
+          previousStep = 3; // Go back to Service Extras
+        }
+      }
+      
       // Skip Service Extras step when going back if no extras are available
-      if (currentStep === 4) { // Going back from Staff selection
+      if (currentStep === 4) { // Going back from Guest Service Extras
         const selectedService = services.find(s => s.id === bookingData.service);
         if (!selectedService?.extras || selectedService.extras.length === 0) {
           previousStep = 2; // Go back to Service selection
@@ -622,7 +655,7 @@ const BookingPage = () => {
         localStorage.setItem('formResponses', JSON.stringify(existingResponses));
       });
 
-      setCurrentStep(8); // Move to confirmation step
+      setCurrentStep(9); // Move to confirmation step
       
       toast({
         title: "Booking Confirmed!",
@@ -914,50 +947,6 @@ const BookingPage = () => {
               </div>
             )}
 
-            {/* Guest Service Extras - Only show when bringing people */}
-            {bringPeopleEnabled && selectedService?.extras && selectedService.extras.length > 0 && (
-              <div className="space-y-4 mt-6">
-                <h4 className="text-md font-semibold">Guest Service Extras</h4>
-                <p className="text-sm text-gray-600">Add extras for each guest individually (optional)</p>
-                
-                {Array.from({ length: additionalGuests }, (_, guestIndex) => (
-                  <div key={guestIndex} className="space-y-3">
-                    <h5 className="text-sm font-semibold text-blue-700">Guest {guestIndex + 1}</h5>
-                    {selectedService.extras.map((extra) => (
-                      <Card key={`guest-${guestIndex}-${extra.id}`} className="p-3 border-blue-200 bg-blue-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Checkbox
-                              checked={guestServiceExtras[guestIndex]?.includes(extra.id) || false}
-                              onCheckedChange={(checked) => {
-                                const currentGuestExtras = guestServiceExtras[guestIndex] || [];
-                                if (checked) {
-                                  setGuestServiceExtras({
-                                    ...guestServiceExtras,
-                                    [guestIndex]: [...currentGuestExtras, extra.id]
-                                  });
-                                } else {
-                                  setGuestServiceExtras({
-                                    ...guestServiceExtras,
-                                    [guestIndex]: currentGuestExtras.filter(id => id !== extra.id)
-                                  });
-                                }
-                              }}
-                            />
-                            <div>
-                              <h6 className="font-medium">{extra.name}</h6>
-                              <p className="text-sm text-gray-600">{extra.description}</p>
-                              <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
-                            </div>
-                          </div>
-                          <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* No extras available message */}
             {(!selectedService?.extras || selectedService.extras.length === 0) && (
@@ -970,6 +959,77 @@ const BookingPage = () => {
         );
 
       case 4:
+        // Guest Service Extras Step
+        const guestServicesWithExtras = Object.entries(guestServices).filter(([_, guestServiceId]) => {
+          const guestService = services.find(s => s.id === guestServiceId);
+          return guestService?.extras && guestService.extras.length > 0;
+        });
+
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Guest Service Extras</h3>
+            <p className="text-sm text-gray-600">Add extras for each guest's service individually (optional)</p>
+            
+            {guestServicesWithExtras.length > 0 ? (
+              <div className="space-y-6">
+                {guestServicesWithExtras.map(([guestIndex, guestServiceId]) => {
+                  const guestService = services.find(s => s.id === guestServiceId);
+                  if (!guestService?.extras) return null;
+
+                  return (
+                    <div key={guestIndex} className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <h4 className="text-md font-semibold text-blue-700">Guest {parseInt(guestIndex) + 1}</h4>
+                        <span className="text-sm text-gray-600">- {guestService.name}</span>
+                      </div>
+                      
+                      <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                        {guestService.extras.map((extra) => (
+                          <Card key={`guest-${guestIndex}-${extra.id}`} className="p-3 border-blue-200 bg-blue-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <Checkbox
+                                  checked={guestServiceExtras[parseInt(guestIndex)]?.includes(extra.id) || false}
+                                  onCheckedChange={(checked) => {
+                                    const currentGuestExtras = guestServiceExtras[parseInt(guestIndex)] || [];
+                                    if (checked) {
+                                      setGuestServiceExtras({
+                                        ...guestServiceExtras,
+                                        [parseInt(guestIndex)]: [...currentGuestExtras, extra.id]
+                                      });
+                                    } else {
+                                      setGuestServiceExtras({
+                                        ...guestServiceExtras,
+                                        [parseInt(guestIndex)]: currentGuestExtras.filter(id => id !== extra.id)
+                                      });
+                                    }
+                                  }}
+                                />
+                                <div>
+                                  <h5 className="font-medium">{extra.name}</h5>
+                                  <p className="text-sm text-gray-600">{extra.description}</p>
+                                  <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
+                                </div>
+                              </div>
+                              <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No guest services with extras selected.</p>
+                <p className="text-sm text-gray-400 mt-2">Click Next to continue with staff selection.</p>
+              </div>
+            )}
+          </div>
+        );
+
+      case 5:
         const availableStaff = getAvailableStaff();
         return (
           <div className="space-y-4">
@@ -1038,7 +1098,7 @@ const BookingPage = () => {
           </div>
         );
 
-      case 5:
+      case 6:
         const selectedServiceForTime = services.find(s => s.id === bookingData.service);
         const selectedStaffForTime = staff.find(s => s.id === bookingData.staff);
         
@@ -1592,7 +1652,7 @@ const BookingPage = () => {
           </div>
         );
 
-      case 6:
+      case 7:
         const selectedServiceForForm = services.find(s => s.id === bookingData.service);
         
         // Get all forms - first visit form first, then other applicable forms
@@ -1675,7 +1735,7 @@ const BookingPage = () => {
           </div>
         );
 
-      case 7:
+      case 8:
         const selectedServiceData = services.find(s => s.id === bookingData.service);
         const selectedStaffData = staff.find(s => s.id === bookingData.staff);
         const selectedLocationData = locations.find(l => l.id === bookingData.location);
@@ -1957,7 +2017,7 @@ const BookingPage = () => {
           </div>
         );
 
-      case 8:
+      case 9:
         const finalService = services.find(s => s.id === bookingData.service);
         const finalLocation = locations.find(l => l.id === bookingData.location);
         const finalStaff = staff.find(s => s.id === bookingData.staff);
