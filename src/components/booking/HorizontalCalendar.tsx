@@ -22,35 +22,33 @@ export const HorizontalCalendar: React.FC<HorizontalCalendarProps> = ({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
-    const weekStart = startOfWeek(selectedDate || new Date(), { weekStartsOn: 1 });
-    // Ensure we never show past weeks
-    return weekStart < today ? startOfWeek(today, { weekStartsOn: 1 }) : weekStart;
+  const [currentStartDate, setCurrentStartDate] = React.useState(() => {
+    const startDate = selectedDate || today;
+    // Ensure we never start before today
+    return startDate < today ? today : startDate;
   });
 
-  // Update current week when selectedDate changes
+  // Update current start date when selectedDate changes
   React.useEffect(() => {
     if (selectedDate) {
-      const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-      // Ensure we never show past weeks
-      setCurrentWeekStart(weekStart < today ? startOfWeek(today, { weekStartsOn: 1 }) : weekStart);
+      // Ensure we never start before today
+      setCurrentStartDate(selectedDate < today ? today : selectedDate);
     }
   }, [selectedDate]);
 
-  // Generate 7 days starting from current week start, but only show dates from today onwards
-  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-  const weekDays = allWeekDays.filter(date => date >= today);
+  // Generate 7 upcoming days starting from current start date
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentStartDate, i));
 
   const handlePrevWeek = () => {
-    const newWeekStart = addDays(currentWeekStart, -7);
-    // Prevent going to weeks that would show past dates
-    if (newWeekStart >= startOfWeek(today, { weekStartsOn: 1 })) {
-      setCurrentWeekStart(newWeekStart);
+    const newStartDate = addDays(currentStartDate, -7);
+    // Prevent going to dates before today
+    if (newStartDate >= today) {
+      setCurrentStartDate(newStartDate);
     }
   };
 
   const handleNextWeek = () => {
-    setCurrentWeekStart(addDays(currentWeekStart, 7));
+    setCurrentStartDate(addDays(currentStartDate, 7));
   };
 
   const isDateDisabled = (date: Date) => {
@@ -68,7 +66,7 @@ export const HorizontalCalendar: React.FC<HorizontalCalendarProps> = ({
       {/* Month/Year header with navigation */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold text-foreground">
-          {format(currentWeekStart, 'MMMM yyyy')}
+          {format(currentStartDate, 'MMMM yyyy')}
         </h2>
         <div className="flex items-center space-x-1">
           <Button
