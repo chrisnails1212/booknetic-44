@@ -134,11 +134,15 @@ const BookingPage = () => {
     });
 
     // Add guest service extras
-    Object.values(guestServiceExtras).forEach(guestExtras => {
-      guestExtras.forEach(extraId => {
-        const extra = selectedService.extras?.find(e => e.id === extraId);
-        if (extra) subtotal += extra.price;
-      });
+    Object.entries(guestServiceExtras).forEach(([guestIndex, guestExtras]) => {
+      const guestServiceId = guestServices[parseInt(guestIndex)];
+      const guestService = services.find(s => s.id === guestServiceId);
+      if (guestService) {
+        guestExtras.forEach(extraId => {
+          const extra = guestService.extras?.find(e => e.id === extraId);
+          if (extra) subtotal += extra.price;
+        });
+      }
     });
 
     let totalDiscount = 0;
@@ -181,11 +185,15 @@ const BookingPage = () => {
     });
 
     // Add guest service extras
-    Object.values(guestServiceExtras).forEach(guestExtras => {
-      guestExtras.forEach(extraId => {
-        const extra = selectedService.extras?.find(e => e.id === extraId);
-        if (extra) subtotal += extra.price;
-      });
+    Object.entries(guestServiceExtras).forEach(([guestIndex, guestExtras]) => {
+      const guestServiceId = guestServices[parseInt(guestIndex)];
+      const guestService = services.find(s => s.id === guestServiceId);
+      if (guestService) {
+        guestExtras.forEach(extraId => {
+          const extra = guestService.extras?.find(e => e.id === extraId);
+          if (extra) subtotal += extra.price;
+        });
+      }
     });
 
     // Apply coupon discount
@@ -914,48 +922,75 @@ const BookingPage = () => {
               </div>
             )}
 
-            {/* Guest Service Extras - Only show when bringing people */}
-            {bringPeopleEnabled && selectedService?.extras && selectedService.extras.length > 0 && (
+            {/* Guest Service Extras - Only show when bringing people and any service has extras */}
+            {bringPeopleEnabled && (() => {
+              // Check if main service or any guest service has extras
+              const mainServiceHasExtras = selectedService?.extras && selectedService.extras.length > 0;
+              const guestServicesWithExtras = Object.values(guestServices).some(guestServiceId => {
+                const guestService = services.find(s => s.id === guestServiceId);
+                return guestService?.extras && guestService.extras.length > 0;
+              });
+              
+              return mainServiceHasExtras || guestServicesWithExtras;
+            })() && (
               <div className="space-y-4 mt-6">
                 <h4 className="text-md font-semibold">Guest Service Extras</h4>
                 <p className="text-sm text-gray-600">Add extras for each guest individually (optional)</p>
                 
-                {Array.from({ length: additionalGuests }, (_, guestIndex) => (
-                  <div key={guestIndex} className="space-y-3">
-                    <h5 className="text-sm font-semibold text-blue-700">Guest {guestIndex + 1}</h5>
-                    {selectedService.extras.map((extra) => (
-                      <Card key={`guest-${guestIndex}-${extra.id}`} className="p-3 border-blue-200 bg-blue-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Checkbox
-                              checked={guestServiceExtras[guestIndex]?.includes(extra.id) || false}
-                              onCheckedChange={(checked) => {
-                                const currentGuestExtras = guestServiceExtras[guestIndex] || [];
-                                if (checked) {
-                                  setGuestServiceExtras({
-                                    ...guestServiceExtras,
-                                    [guestIndex]: [...currentGuestExtras, extra.id]
-                                  });
-                                } else {
-                                  setGuestServiceExtras({
-                                    ...guestServiceExtras,
-                                    [guestIndex]: currentGuestExtras.filter(id => id !== extra.id)
-                                  });
-                                }
-                              }}
-                            />
-                            <div>
-                              <h6 className="font-medium">{extra.name}</h6>
-                              <p className="text-sm text-gray-600">{extra.description}</p>
-                              <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
+                {Array.from({ length: additionalGuests }, (_, guestIndex) => {
+                  // Get the service for this specific guest
+                  const guestServiceId = guestServices[guestIndex];
+                  const guestService = services.find(s => s.id === guestServiceId);
+                  
+                  // Only show extras if this guest's service has extras
+                  if (!guestService?.extras || guestService.extras.length === 0) {
+                    return (
+                      <div key={guestIndex} className="space-y-3">
+                        <h5 className="text-sm font-semibold text-blue-700">Guest {guestIndex + 1}</h5>
+                        <Card className="p-3 border-gray-200 bg-gray-50">
+                          <p className="text-sm text-gray-500">No extras available for {guestService?.name || 'selected service'}</p>
+                        </Card>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div key={guestIndex} className="space-y-3">
+                      <h5 className="text-sm font-semibold text-blue-700">Guest {guestIndex + 1} - {guestService.name}</h5>
+                      {guestService.extras.map((extra) => (
+                        <Card key={`guest-${guestIndex}-${extra.id}`} className="p-3 border-blue-200 bg-blue-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <Checkbox
+                                checked={guestServiceExtras[guestIndex]?.includes(extra.id) || false}
+                                onCheckedChange={(checked) => {
+                                  const currentGuestExtras = guestServiceExtras[guestIndex] || [];
+                                  if (checked) {
+                                    setGuestServiceExtras({
+                                      ...guestServiceExtras,
+                                      [guestIndex]: [...currentGuestExtras, extra.id]
+                                    });
+                                  } else {
+                                    setGuestServiceExtras({
+                                      ...guestServiceExtras,
+                                      [guestIndex]: currentGuestExtras.filter(id => id !== extra.id)
+                                    });
+                                  }
+                                }}
+                              />
+                              <div>
+                                <h6 className="font-medium">{extra.name}</h6>
+                                <p className="text-sm text-gray-600">{extra.description}</p>
+                                <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
+                              </div>
                             </div>
+                            <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
                           </div>
-                          <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ))}
+                        </Card>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
