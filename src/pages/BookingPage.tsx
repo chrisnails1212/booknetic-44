@@ -79,7 +79,6 @@ const BookingPage = () => {
   const [additionalGuests, setAdditionalGuests] = useState(0);
   const [bringPeopleEnabled, setBringPeopleEnabled] = useState(false);
   const [guestServices, setGuestServices] = useState<{[guestIndex: number]: string}>({});
-  const [extraServices, setExtraServices] = useState<string[]>([]);
 
   const steps = [
     'Location',
@@ -133,12 +132,6 @@ const BookingPage = () => {
       if (guestService) subtotal += guestService.price;
     });
 
-    // Add extra services
-    extraServices.forEach(extraServiceId => {
-      const extraService = services.find(s => s.id === extraServiceId);
-      if (extraService) subtotal += extraService.price;
-    });
-
     let totalDiscount = 0;
 
     // Apply coupon discount
@@ -176,12 +169,6 @@ const BookingPage = () => {
     Object.values(guestServices).forEach(guestServiceId => {
       const guestService = services.find(s => s.id === guestServiceId);
       if (guestService) subtotal += guestService.price;
-    });
-
-    // Add extra services
-    extraServices.forEach(extraServiceId => {
-      const extraService = services.find(s => s.id === extraServiceId);
-      if (extraService) subtotal += extraService.price;
     });
 
     // Apply coupon discount
@@ -569,8 +556,7 @@ const BookingPage = () => {
         customFields: convertedCustomFields,
         totalPrice: calculateTotal(),
         additionalGuests,
-        guestServices,
-        extraServices
+        guestServices
       });
 
       console.log('Booking submitted:', {
@@ -753,9 +739,8 @@ const BookingPage = () => {
                           onCheckedChange={(checked) => {
                             setBringPeopleEnabled(!!checked);
                             if (!checked) {
-                              setAdditionalGuests(0);
-                              setGuestServices({});
-                              setExtraServices([]);
+                               setAdditionalGuests(0);
+                               setGuestServices({});
                             }
                           }}
                         />
@@ -864,56 +849,6 @@ const BookingPage = () => {
                               </div>
                             )}
 
-                            {/* Extra Services Selection */}
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 mb-3">
-                                Add extra services (optional):
-                              </p>
-                              <div className="space-y-2">
-                                {services
-                                  .filter(service => {
-                                    // Filter services available at current location and not the main service
-                                    if (service.id === bookingData.service) return false;
-                                    const availableStaff = staff.filter(s => 
-                                      s.services.includes(service.id) && 
-                                      s.locations.includes(bookingData.location)
-                                    );
-                                    return availableStaff.length > 0;
-                                  })
-                                  .map((service) => (
-                                    <div key={service.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white">
-                                      <div className="flex items-center space-x-3">
-                                        <Checkbox
-                                          checked={extraServices.includes(service.id)}
-                                          onCheckedChange={(checked) => {
-                                            if (checked) {
-                                              setExtraServices(prev => [...prev, service.id]);
-                                            } else {
-                                              setExtraServices(prev => prev.filter(id => id !== service.id));
-                                            }
-                                          }}
-                                        />
-                                        <div>
-                                          <p className="font-medium">{service.name}</p>
-                                          <p className="text-sm text-gray-600">{service.description}</p>
-                                          <p className="text-xs text-gray-500">{service.duration} minutes</p>
-                                        </div>
-                                      </div>
-                                      <span className="text-sm font-semibold">+{formatPrice(service.price)}</span>
-                                    </div>
-                                  ))}
-                                {services.filter(service => {
-                                  if (service.id === bookingData.service) return false;
-                                  const availableStaff = staff.filter(s => 
-                                    s.services.includes(service.id) && 
-                                    s.locations.includes(bookingData.location)
-                                  );
-                                  return availableStaff.length > 0;
-                                }).length === 0 && (
-                                  <p className="text-sm text-gray-500 italic">No extra services available</p>
-                                )}
-                              </div>
-                            </div>
                           </div>
                         )}
                       </div>
