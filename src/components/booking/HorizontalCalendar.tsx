@@ -37,9 +37,8 @@ export const HorizontalCalendar: React.FC<HorizontalCalendarProps> = ({
     }
   }, [selectedDate]);
 
-  // Generate 7 days starting from current week start, but only show dates from today onwards
-  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-  const weekDays = allWeekDays.filter(date => date >= today);
+  // Generate all 7 days of the week
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
   const handlePrevWeek = () => {
     const newWeekStart = addDays(currentWeekStart, -7);
