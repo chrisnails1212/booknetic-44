@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 const GeneralSettings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const [settings, setSettings] = useState({
     timezone: 'UTC',
@@ -36,14 +37,22 @@ const GeneralSettings = () => {
         console.error('Error parsing saved settings:', error);
       }
     }
+    setIsInitialLoad(false);
   }, []);
 
-  // Save settings to localStorage whenever they change
+  // Save settings to localStorage whenever they change (but not on initial load)
   useEffect(() => {
-    localStorage.setItem('generalSettings', JSON.stringify(settings));
-  }, [settings]);
+    if (!isInitialLoad) {
+      localStorage.setItem('generalSettings', JSON.stringify(settings));
+      console.log('Settings saved to localStorage:', settings);
+    }
+  }, [settings, isInitialLoad]);
 
   const handleSave = () => {
+    // Explicitly save to localStorage
+    localStorage.setItem('generalSettings', JSON.stringify(settings));
+    console.log('Settings explicitly saved:', settings);
+    
     toast({
       title: "Settings saved",
       description: "General settings have been updated successfully.",
