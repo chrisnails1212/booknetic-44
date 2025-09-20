@@ -443,7 +443,8 @@ const BookingPage = () => {
         appliedGiftcards: availableGiftcard ? [availableGiftcard.id] : [],
         appliedTaxes: applicableTaxes.map(tax => tax.id),
         customFields: convertedCustomFields,
-        totalPrice: calculateTotal()
+        totalPrice: calculateTotal(),
+        additionalGuests: 0 // Set to 0 for individual bookings
       };
 
       addAppointment(appointmentData);
@@ -530,6 +531,7 @@ const BookingPage = () => {
           appliedGiftcards: [],
           appliedTaxes: [],
           customFields: { groupBookingId: groupId, memberName: member.name },
+          additionalGuests: 0, // Set to 0 for group bookings (each member is a separate appointment)
           totalPrice: service.price + member.extras.reduce((sum, extraId) => {
             const extra = service.extras?.find(e => e.id === extraId);
             return sum + (extra?.price || 0);
