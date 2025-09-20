@@ -19,9 +19,11 @@ import { useAppData } from '@/contexts/AppDataContext';
 import { format, parse, addMinutes, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { InteractiveFormRenderer } from '@/components/forms/InteractiveFormRenderer';
-import { getAvailableTimeSlotsForDate, isDateAvailable, formatTimeSlot, findNextAvailableDate } from '@/utils/availabilityHelper';
+import { getAvailableTimeSlotsForDate, isDateAvailable, formatTimeSlot, findNextAvailableDate, getGroupAvailableTimeSlots, isGroupTimeSlotAvailable } from '@/utils/availabilityHelper';
 import { convertCustomFieldsForSaving } from '@/utils/fileHelper';
 import { CustomerSelfServicePanel } from '@/components/customers/CustomerSelfServicePanel';
+import { GroupBookingManager } from '@/components/booking/GroupBookingManager';
+import { GroupBookingMember, GroupBookingData } from '@/types/groupBookingTypes';
 
 
 const BookingPage = () => {
@@ -59,8 +61,30 @@ const BookingPage = () => {
   });
   
   const [additionalGuests, setAdditionalGuests] = useState(0);
+  const [isGroupBooking, setIsGroupBooking] = useState(false);
+  const [groupBookingData, setGroupBookingData] = useState<GroupBookingData>({
+    primaryMember: {
+      serviceId: '',
+      staffId: '',
+      selectedExtras: []
+    },
+    additionalMembers: [],
+    bookingPreferences: {
+      concurrent: true,
+      sameStaff: false
+    }
+  });
 
-  const steps = [
+  const steps = isGroupBooking ? [
+    'Location',
+    'Service',
+    'Service Extras',
+    'Group Members',
+    'Staff Selection',
+    'Date & Time',
+    'Information',
+    'Confirmation'
+  ] : [
     'Location',
     'Service',
     'Service Extras',
@@ -91,6 +115,98 @@ const BookingPage = () => {
       s.services.includes(bookingData.service) && 
       s.locations.includes(bookingData.location)
     );
+  };
+
+  // Get available time slots for group booking
+  const getAvailableTimeSlotsForGroup = (selectedDate: Date) => {
+    if (!isGroupBooking) {
+      // Regular booking logic
+      const selectedStaff = staff.find(s => s.id === bookingData.staff);
+      const selectedService = services.find(s => s.id === bookingData.service);
+      
+      if (!selectedStaff || !selectedService) return [];
+      
+      const staffSchedule = {
+        staffId: selectedStaff.id,
+        weekly: selectedStaff.schedule?.weekly || {},
+        specialDays: selectedStaff.schedule?.specialDays || [],
+        holidays: selectedStaff.schedule?.holidays || [],
+        breakTimes: selectedStaff.schedule?.breakTimes || []
+      };
+      
+      return getAvailableTimeSlotsForDate(
+        selectedDate,
+        staffSchedule,
+        selectedService.duration,
+        appointments.map(apt => ({
+          id: apt.id,
+          staffId: apt.staffId,
+          serviceId: apt.serviceId,
+          date: new Date(apt.date),
+          time: apt.time,
+          duration: services.find(s => s.id === apt.serviceId)?.duration || 0
+        })),
+        selectedStaff.id
+      );
+    } else {
+      // Group booking logic
+      const serviceStaffPairs = [];
+      
+      // Add primary member
+      if (groupBookingData.primaryMember.serviceId && groupBookingData.primaryMember.staffId) {
+        const service = services.find(s => s.id === groupBookingData.primaryMember.serviceId);
+        if (service) {
+          serviceStaffPairs.push({
+            serviceId: service.id,
+            staffId: groupBookingData.primaryMember.staffId,
+            serviceDuration: service.duration
+          });
+        }
+      }
+      
+      // Add additional members
+      groupBookingData.additionalMembers.forEach(member => {
+        if (member.serviceId && member.staffId) {
+          const service = services.find(s => s.id === member.serviceId);
+          if (service) {
+            serviceStaffPairs.push({
+              serviceId: service.id,
+              staffId: member.staffId,
+              serviceDuration: service.duration
+            });
+          }
+        }
+      });
+      
+      if (serviceStaffPairs.length === 0) return [];
+      
+      // Get staff schedules
+      const staffSchedules = serviceStaffPairs.map(pair => {
+        const staffMember = staff.find(s => s.id === pair.staffId);
+        return staffMember ? {
+          staffId: staffMember.id,
+          weekly: staffMember.schedule?.weekly || {},
+          specialDays: staffMember.schedule?.specialDays || [],
+          holidays: staffMember.schedule?.holidays || [],
+          breakTimes: staffMember.schedule?.breakTimes || []
+        } : null;
+      }).filter(Boolean);
+      
+      return getGroupAvailableTimeSlots(
+        selectedDate,
+        staffSchedules,
+        serviceStaffPairs,
+        appointments.map(apt => ({
+          id: apt.id,
+          staffId: apt.staffId,
+          serviceId: apt.serviceId,
+          date: new Date(apt.date),
+          time: apt.time,
+          duration: services.find(s => s.id === apt.serviceId)?.duration || 0
+        })),
+        groupBookingData.bookingPreferences.concurrent
+      );
+    }
   };
 
   // Calculate discount amount
@@ -130,107 +246,242 @@ const BookingPage = () => {
     return totalDiscount;
   };
 
-  // Calculate total price with taxes, coupons, and gift cards
   const calculateTotal = () => {
-    const selectedService = services.find(s => s.id === bookingData.service);
-    if (!selectedService) return 0;
+    if (!isGroupBooking) {
+      // Regular booking calculation
+      const selectedService = services.find(s => s.id === bookingData.service);
+      if (!selectedService) return 0;
 
-    let subtotal = selectedService.price;
-    
-    // Add extras
-    selectedExtras.forEach(extraId => {
-      const extra = selectedService.extras?.find(e => e.id === extraId);
-      if (extra) subtotal += extra.price;
-    });
+      let subtotal = selectedService.price;
+      
+      // Add extras
+      selectedExtras.forEach(extraId => {
+        const extra = selectedService.extras?.find(e => e.id === extraId);
+        if (extra) subtotal += extra.price;
+      });
 
-    // Apply group booking multiplier (price multiplied by 1 + additional guests)
-    const multiplier = 1 + additionalGuests;
-    subtotal = subtotal * multiplier;
+      // Apply group booking multiplier (price multiplied by 1 + additional guests)
+      const multiplier = 1 + additionalGuests;
+      subtotal = subtotal * multiplier;
 
-    // Apply coupon discount
-    if (availableCoupon) {
-      if (availableCoupon.discount.includes('%')) {
-        const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
-        subtotal = subtotal * (1 - percentage / 100);
-      } else {
-        subtotal -= parseFloat(availableCoupon.discount.replace('$', ''));
+      // Apply coupon discount
+      if (availableCoupon) {
+        if (availableCoupon.discount.includes('%')) {
+          const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
+          subtotal = subtotal * (1 - percentage / 100);
+        } else {
+          subtotal -= parseFloat(availableCoupon.discount.replace('$', ''));
+        }
       }
+
+      // Apply gift card
+      if (availableGiftcard) {
+        subtotal = Math.max(0, subtotal - availableGiftcard.balance);
+      }
+
+      // Add applicable taxes
+      const applicableTaxes = taxes.filter(tax => 
+        tax.enabled && 
+        (tax.locationsFilter === 'all-locations' || tax.locationsFilter === bookingData.location) &&
+        (tax.servicesFilter === 'all-services' || tax.servicesFilter === bookingData.service)
+      );
+
+      let taxAmount = 0;
+      applicableTaxes.forEach(tax => {
+        taxAmount += (subtotal * tax.amount) / 100;
+      });
+
+      return subtotal + taxAmount;
+    } else {
+      // Group booking calculation
+      let total = 0;
+      
+      // Primary member
+      if (groupBookingData.primaryMember.serviceId) {
+        const service = services.find(s => s.id === groupBookingData.primaryMember.serviceId);
+        if (service) {
+          let serviceTotal = service.price;
+          
+          // Add extras for primary member
+          groupBookingData.primaryMember.selectedExtras.forEach(extraId => {
+            const extra = service.extras?.find(e => e.id === extraId);
+            if (extra) serviceTotal += extra.price;
+          });
+          
+          total += serviceTotal;
+        }
+      }
+      
+      // Additional members
+      groupBookingData.additionalMembers.forEach(member => {
+        if (member.serviceId) {
+          const service = services.find(s => s.id === member.serviceId);
+          if (service) {
+            let serviceTotal = service.price;
+            
+            // Add extras for this member
+            member.selectedExtras.forEach(extraId => {
+              const extra = service.extras?.find(e => e.id === extraId);
+              if (extra) serviceTotal += extra.price;
+            });
+            
+            total += serviceTotal;
+          }
+        }
+      });
+      
+      // Apply coupon discount to total
+      if (availableCoupon) {
+        if (availableCoupon.discount.includes('%')) {
+          const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
+          total = total * (1 - percentage / 100);
+        } else {
+          total -= parseFloat(availableCoupon.discount.replace('$', ''));
+        }
+      }
+
+      // Apply gift card
+      if (availableGiftcard) {
+        total = Math.max(0, total - availableGiftcard.balance);
+      }
+
+      // Add applicable taxes
+      const applicableTaxes = taxes.filter(tax => 
+        tax.enabled && 
+        (tax.locationsFilter === 'all-locations' || tax.locationsFilter === bookingData.location)
+      );
+
+      let taxAmount = 0;
+      applicableTaxes.forEach(tax => {
+        taxAmount += (total * tax.amount) / 100;
+      });
+
+      return total + taxAmount;
     }
-
-    // Apply gift card
-    if (availableGiftcard) {
-      subtotal = Math.max(0, subtotal - availableGiftcard.balance);
-    }
-
-    // Add applicable taxes
-    const applicableTaxes = taxes.filter(tax => 
-      tax.enabled && 
-      (tax.locationsFilter === 'all-locations' || tax.locationsFilter === bookingData.location) &&
-      (tax.servicesFilter === 'all-services' || tax.servicesFilter === bookingData.service)
-    );
-
-    let taxAmount = 0;
-    applicableTaxes.forEach(tax => {
-      taxAmount += (subtotal * tax.amount) / 100;
-    });
-
-    return subtotal + taxAmount;
   };
 
   const validateStep = () => {
-    switch (currentStep) {
-      case 1:
-        return bookingData.location !== '';
-      case 2:
-        return bookingData.service !== '';
-      case 3:
-        return true; // Service extras step - no required selection
-      case 4:
-        return bookingData.staff !== '';
-      case 5:
-        return bookingData.date !== '' && bookingData.time !== '';
-      case 6:
-        // Validate only custom form fields
-        const selectedServiceForValidation = services.find(s => s.id === bookingData.service);
-        const applicableFormForValidation = serviceForms.find(form => {
-          if (form.services === 'All Services' || form.services === 'all') {
-            return true;
-          }
-          if (selectedServiceForValidation && form.services) {
-            const serviceCategoryLower = selectedServiceForValidation.category.toLowerCase();
-            const formServicesLower = form.services.toLowerCase();
-            return serviceCategoryLower === formServicesLower;
-          }
-          return false;
-        });
-        
-        // Load form elements for validation
-        let validationFormElements: any[] = [];
-        if (applicableFormForValidation) {
-          const savedFormElements = localStorage.getItem(`customForm_${applicableFormForValidation.id}`);
-          if (savedFormElements) {
-            try {
-              validationFormElements = JSON.parse(savedFormElements);
-            } catch (error) {
-              console.error('Error parsing form elements for validation:', error);
+    if (isGroupBooking) {
+      switch (currentStep) {
+        case 1:
+          return bookingData.location !== '';
+        case 2:
+          return bookingData.service !== '';
+        case 3:
+          return true; // Service extras step - no required selection
+        case 4:
+          // Group Members step - validate that at least one member is configured
+          return groupBookingData.additionalMembers.length > 0 &&
+                 groupBookingData.additionalMembers.every(member => 
+                   member.name.trim() !== '' && 
+                   member.serviceId !== ''
+                 );
+        case 5:
+          // Staff Selection step - validate staff assignments
+          return groupBookingData.primaryMember.staffId !== '' &&
+                 groupBookingData.additionalMembers.every(member =>
+                   member.staffPreference === 'same' || member.staffId !== ''
+                 );
+        case 6:
+          return bookingData.date !== '' && bookingData.time !== '';
+        case 7:
+          // Validate custom form fields (same as regular booking)
+          const selectedServiceForValidation = services.find(s => s.id === bookingData.service);
+          const applicableFormForValidation = serviceForms.find(form => {
+            if (form.services === 'All Services' || form.services === 'all') {
+              return true;
             }
-          }
-        }
-        
-        if (validationFormElements.length > 0) {
-          for (const element of validationFormElements) {
-            if (element.required) {
-              const value = customFormData[element.id];
-              if (!value || (typeof value === 'string' && value.trim() === '')) {
-                return false;
+            if (selectedServiceForValidation && form.services) {
+              const serviceCategoryLower = selectedServiceForValidation.category.toLowerCase();
+              const formServicesLower = form.services.toLowerCase();
+              return serviceCategoryLower === formServicesLower;
+            }
+            return false;
+          });
+          
+          let validationFormElements: any[] = [];
+          if (applicableFormForValidation) {
+            const savedFormElements = localStorage.getItem(`customForm_${applicableFormForValidation.id}`);
+            if (savedFormElements) {
+              try {
+                validationFormElements = JSON.parse(savedFormElements);
+              } catch (error) {
+                console.error('Error parsing form elements for validation:', error);
               }
             }
           }
-        }
-        
-        return true;
-      default:
-        return true;
+          
+          if (validationFormElements.length > 0) {
+            for (const element of validationFormElements) {
+              if (element.required) {
+                const value = customFormData[element.id];
+                if (!value || (typeof value === 'string' && value.trim() === '')) {
+                  return false;
+                }
+              }
+            }
+          }
+          
+          return true;
+        default:
+          return true;
+      }
+    } else {
+      // Regular booking validation
+      switch (currentStep) {
+        case 1:
+          return bookingData.location !== '';
+        case 2:
+          return bookingData.service !== '';
+        case 3:
+          return true; // Service extras step - no required selection
+        case 4:
+          return bookingData.staff !== '';
+        case 5:
+          return bookingData.date !== '' && bookingData.time !== '';
+        case 6:
+          // Validate only custom form fields
+          const selectedServiceForValidation = services.find(s => s.id === bookingData.service);
+          const applicableFormForValidation = serviceForms.find(form => {
+            if (form.services === 'All Services' || form.services === 'all') {
+              return true;
+            }
+            if (selectedServiceForValidation && form.services) {
+              const serviceCategoryLower = selectedServiceForValidation.category.toLowerCase();
+              const formServicesLower = form.services.toLowerCase();
+              return serviceCategoryLower === formServicesLower;
+            }
+            return false;
+          });
+          
+          // Load form elements for validation
+          let validationFormElements: any[] = [];
+          if (applicableFormForValidation) {
+            const savedFormElements = localStorage.getItem(`customForm_${applicableFormForValidation.id}`);
+            if (savedFormElements) {
+              try {
+                validationFormElements = JSON.parse(savedFormElements);
+              } catch (error) {
+                console.error('Error parsing form elements for validation:', error);
+              }
+            }
+          }
+          
+          if (validationFormElements.length > 0) {
+            for (const element of validationFormElements) {
+              if (element.required) {
+                const value = customFormData[element.id];
+                if (!value || (typeof value === 'string' && value.trim() === '')) {
+                  return false;
+                }
+              }
+            }
+          }
+          
+          return true;
+        default:
+          return true;
+      }
     }
   };
 
@@ -238,11 +489,21 @@ const BookingPage = () => {
     if (validateStep() && currentStep < steps.length) {
       let nextStep = currentStep + 1;
       
-      // Skip Service Extras step if no extras are available
-      if (currentStep === 2) { // Coming from Service selection
-        const selectedService = services.find(s => s.id === bookingData.service);
-        if (!selectedService?.extras || selectedService.extras.length === 0) {
-          nextStep = 4; // Skip to Staff selection
+      if (isGroupBooking) {
+        // Group booking step logic
+        if (currentStep === 2) { // Coming from Service selection
+          const selectedService = services.find(s => s.id === bookingData.service);
+          if (!selectedService?.extras || selectedService.extras.length === 0) {
+            nextStep = 4; // Skip to Group Members
+          }
+        }
+      } else {
+        // Regular booking step logic
+        if (currentStep === 2) { // Coming from Service selection
+          const selectedService = services.find(s => s.id === bookingData.service);
+          if (!selectedService?.extras || selectedService.extras.length === 0) {
+            nextStep = 4; // Skip to Staff selection
+          }
         }
       }
       
@@ -699,70 +960,152 @@ const BookingPage = () => {
                ))}
              </div>
              
-             {/* Group Booking UI */}
-             {(() => {
-               const selectedService = services.find(s => s.id === bookingData.service);
-               if (!selectedService?.groupBooking?.enabled) return null;
-               
-               return (
-                 <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-                   <div className="flex items-start space-x-3">
-                     <div className="flex-shrink-0 mt-1">
-                       <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                         <CheckCircle className="w-3 h-3 text-white" />
-                       </div>
-                     </div>
-                     <div className="flex-1">
-                       <h4 className="font-medium text-gray-900 mb-2">✓ Bring People with You</h4>
-                       <p className="text-sm text-gray-600 mb-4">
-                         Number of people: 
-                       </p>
-                       <div className="flex items-center space-x-4">
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => setAdditionalGuests(Math.max(0, additionalGuests - 1))}
-                           disabled={additionalGuests === 0}
-                           className="w-8 h-8 p-0"
-                         >
-                           <Minus className="w-4 h-4" />
-                         </Button>
-                         <span className="text-lg font-medium min-w-[2rem] text-center">
-                           {additionalGuests}
-                         </span>
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => setAdditionalGuests(Math.min(selectedService.groupBooking?.maxAdditionalGuests || 5, additionalGuests + 1))}
-                           disabled={additionalGuests >= (selectedService.groupBooking?.maxAdditionalGuests || 5)}
-                           className="w-8 h-8 p-0"
-                         >
-                           <Plus className="w-4 h-4" />
-                         </Button>
-                       </div>
-                       
-                       {additionalGuests > 0 && (
-                         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                           <div className="text-sm space-y-1">
-                             <div className="flex justify-between">
-                               <span>Service Price:</span>
-                               <span>{formatPrice((selectedService.price * (1 + additionalGuests)))}</span>
-                             </div>
-                             <div className="flex justify-between">
-                               <span>Duration:</span>
-                               <span>{selectedService.duration * (1 + additionalGuests)} minutes</span>
-                             </div>
-                             <div className="text-xs text-blue-600 mt-2">
-                               Price and duration multiplied by {1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
-                             </div>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                   </div>
-                 </div>
-               );
-             })()}
+              {/* Group Booking UI */}
+              {(() => {
+                const selectedService = services.find(s => s.id === bookingData.service);
+                if (!selectedService?.groupBooking?.enabled) return null;
+                
+                return (
+                  <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 mt-1">
+                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                          <CheckCircle className="w-3 h-3 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-2">✓ Group Booking Available</h4>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Choose your booking type:
+                        </p>
+                        
+                        <div className="space-y-3">
+                          {/* Simple Group Booking */}
+                          <Card 
+                            className={`cursor-pointer transition-all ${
+                              !isGroupBooking && additionalGuests > 0 
+                                ? 'ring-2 bg-blue-50' 
+                                : 'hover:shadow-sm'
+                            }`}
+                            onClick={() => {
+                              if (!isGroupBooking) {
+                                setIsGroupBooking(false);
+                                setAdditionalGuests(Math.max(1, additionalGuests));
+                              } else {
+                                setIsGroupBooking(false);
+                                setAdditionalGuests(1);
+                                setGroupBookingData({
+                                  primaryMember: { serviceId: '', staffId: '', selectedExtras: [] },
+                                  additionalMembers: [],
+                                  bookingPreferences: { concurrent: true, sameStaff: false }
+                                });
+                              }
+                            }}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h5 className="font-medium">Simple Group Booking</h5>
+                                  <p className="text-xs text-gray-600">Same service for everyone</p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isGroupBooking) {
+                                        setAdditionalGuests(Math.max(0, additionalGuests - 1));
+                                      }
+                                    }}
+                                    disabled={additionalGuests === 0 || isGroupBooking}
+                                    className="w-6 h-6 p-0"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </Button>
+                                  <span className="text-sm font-medium min-w-[1.5rem] text-center">
+                                    {!isGroupBooking ? additionalGuests : 0}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isGroupBooking) {
+                                        setAdditionalGuests(Math.min(selectedService.groupBooking?.maxAdditionalGuests || 5, additionalGuests + 1));
+                                      }
+                                    }}
+                                    disabled={additionalGuests >= (selectedService.groupBooking?.maxAdditionalGuests || 5) || isGroupBooking}
+                                    className="w-6 h-6 p-0"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Advanced Group Booking */}
+                          <Card 
+                            className={`cursor-pointer transition-all ${
+                              isGroupBooking 
+                                ? 'ring-2 bg-blue-50' 
+                                : 'hover:shadow-sm'
+                            }`}
+                            onClick={() => {
+                              setIsGroupBooking(true);
+                              setAdditionalGuests(0);
+                              setGroupBookingData({
+                                primaryMember: { 
+                                  serviceId: selectedService.id, 
+                                  staffId: '', 
+                                  selectedExtras: [...selectedExtras] 
+                                },
+                                additionalMembers: [],
+                                bookingPreferences: { concurrent: true, sameStaff: false }
+                              });
+                            }}
+                          >
+                            <CardContent className="p-3">
+                              <div>
+                                <h5 className="font-medium">Advanced Group Booking</h5>
+                                <p className="text-xs text-gray-600">Different services, staff, and preferences for each person</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        {(!isGroupBooking && additionalGuests > 0) && (
+                          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <div className="text-sm space-y-1">
+                              <div className="flex justify-between">
+                                <span>Service Price:</span>
+                                <span>{formatPrice((selectedService.price * (1 + additionalGuests)))}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Duration:</span>
+                                <span>{selectedService.duration * (1 + additionalGuests)} minutes</span>
+                              </div>
+                              <div className="text-xs text-blue-600 mt-2">
+                                Price and duration multiplied by {1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {isGroupBooking && (
+                          <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                            <div className="text-sm text-green-700">
+                              <strong>Advanced group booking selected</strong><br/>
+                              Configure individual services and staff in the next steps.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
            </div>
          );
 
