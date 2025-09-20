@@ -43,6 +43,21 @@ const BookingPage = () => {
   const [availableGiftcard, setAvailableGiftcard] = useState<any>(null);
   const [availableCoupon, setAvailableCoupon] = useState<any>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [groupBookingEnabled, setGroupBookingEnabled] = useState(true);
+
+  // Load group booking setting from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('generalSettings');
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings);
+        setGroupBookingEnabled(parsedSettings.groupBooking !== false); // Default to true
+      } catch (error) {
+        console.error('Error parsing general settings:', error);
+        setGroupBookingEnabled(true); // Default to true if parsing fails
+      }
+    }
+  }, []);
 
   const [bookingData, setBookingData] = useState({
     location: locations.length === 1 ? locations[0].id : '',
@@ -58,7 +73,7 @@ const BookingPage = () => {
     notes: ''
   });
   
-  const [additionalGuests, setAdditionalGuests] = useState(0);
+  const [additionalGuests, setAdditionalGuests] = useState(1);
 
   const steps = [
     'Location',
@@ -107,7 +122,7 @@ const BookingPage = () => {
     });
 
     // Apply group booking multiplier
-    const multiplier = 1 + additionalGuests;
+    const multiplier = additionalGuests;
     subtotal = subtotal * multiplier;
 
     let totalDiscount = 0;
@@ -143,8 +158,8 @@ const BookingPage = () => {
       if (extra) subtotal += extra.price;
     });
 
-    // Apply group booking multiplier (price multiplied by 1 + additional guests)
-    const multiplier = 1 + additionalGuests;
+    // Apply group booking multiplier (price multiplied by additional guests)
+    const multiplier = additionalGuests;
     subtotal = subtotal * multiplier;
 
     // Apply coupon discount
@@ -699,70 +714,65 @@ const BookingPage = () => {
                ))}
              </div>
              
-             {/* Group Booking UI */}
-             {(() => {
-               const selectedService = services.find(s => s.id === bookingData.service);
-               if (!selectedService?.groupBooking?.enabled) return null;
-               
-               return (
-                 <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-                   <div className="flex items-start space-x-3">
-                     <div className="flex-shrink-0 mt-1">
-                       <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                         <CheckCircle className="w-3 h-3 text-white" />
-                       </div>
-                     </div>
-                     <div className="flex-1">
-                       <h4 className="font-medium text-gray-900 mb-2">✓ Bring People with You</h4>
-                       <p className="text-sm text-gray-600 mb-4">
-                         Number of people: 
-                       </p>
-                       <div className="flex items-center space-x-4">
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => setAdditionalGuests(Math.max(0, additionalGuests - 1))}
-                           disabled={additionalGuests === 0}
-                           className="w-8 h-8 p-0"
-                         >
-                           <Minus className="w-4 h-4" />
-                         </Button>
-                         <span className="text-lg font-medium min-w-[2rem] text-center">
-                           {additionalGuests}
-                         </span>
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => setAdditionalGuests(Math.min(selectedService.groupBooking?.maxAdditionalGuests || 5, additionalGuests + 1))}
-                           disabled={additionalGuests >= (selectedService.groupBooking?.maxAdditionalGuests || 5)}
-                           className="w-8 h-8 p-0"
-                         >
-                           <Plus className="w-4 h-4" />
-                         </Button>
-                       </div>
-                       
-                       {additionalGuests > 0 && (
-                         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                           <div className="text-sm space-y-1">
-                             <div className="flex justify-between">
-                               <span>Service Price:</span>
-                               <span>{formatPrice((selectedService.price * (1 + additionalGuests)))}</span>
-                             </div>
-                             <div className="flex justify-between">
-                               <span>Duration:</span>
-                               <span>{selectedService.duration * (1 + additionalGuests)} minutes</span>
-                             </div>
-                             <div className="text-xs text-blue-600 mt-2">
-                               Price and duration multiplied by {1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
-                             </div>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                   </div>
-                 </div>
-               );
-             })()}
+              {/* Group Booking UI */}
+              {groupBookingEnabled && (() => {
+                const selectedService = services.find(s => s.id === bookingData.service);
+                if (!selectedService) return null;
+                
+                return (
+                  <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 mt-1">
+                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                          <CheckCircle className="w-3 h-3 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-2">✓ Bring People with You</h4>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Number of people: 
+                        </p>
+                        <div className="flex items-center space-x-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAdditionalGuests(Math.max(1, additionalGuests - 1))}
+                            disabled={additionalGuests === 1}
+                            className="w-8 h-8 p-0"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <span className="text-lg font-medium min-w-[2rem] text-center">
+                            {additionalGuests}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAdditionalGuests(additionalGuests + 1)}
+                            className="w-8 h-8 p-0"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="mt-4 space-y-2">
+                          <div className="flex justify-between">
+                            <span>Service Price:</span>
+                            <span className="font-medium">{formatPrice((selectedService.price * additionalGuests))}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Duration:</span>
+                            <span className="font-medium">{selectedService.duration * additionalGuests} minutes</span>
+                          </div>
+                          <div className="text-xs text-blue-600 mt-2">
+                            Price and duration multiplied by {additionalGuests} (you{additionalGuests > 1 ? ` + ${additionalGuests - 1} guest${additionalGuests > 2 ? 's' : ''}` : ''})
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
            </div>
          );
 
@@ -889,7 +899,7 @@ const BookingPage = () => {
         });
         
         // Apply group booking duration multiplier
-        const durationMultiplier = 1 + additionalGuests;
+        const durationMultiplier = additionalGuests;
         totalServiceDuration = totalServiceDuration * durationMultiplier;
 
         // Convert appointments to BookedAppointment format
@@ -906,7 +916,7 @@ const BookingPage = () => {
           }
           
           // Apply group booking duration multiplier if appointment has additional guests
-          const appointmentMultiplier = 1 + (appointment.additionalGuests || 0);
+          const appointmentMultiplier = appointment.additionalGuests || 1;
           appointmentDuration = appointmentDuration * appointmentMultiplier;
           
           return {
@@ -1422,7 +1432,7 @@ const BookingPage = () => {
                   <strong>Service Duration:</strong> {totalServiceDuration} minutes
                   {selectedExtras.length > 0 && (
                     <span className="block mt-1">
-                      (Base: {selectedServiceForTime.duration * (1 + additionalGuests)} min + Extras: {(totalServiceDuration / (1 + additionalGuests) - selectedServiceForTime.duration) * (1 + additionalGuests)} min)
+                      (Base: {selectedServiceForTime.duration * additionalGuests} min + Extras: {(totalServiceDuration / additionalGuests - selectedServiceForTime.duration) * additionalGuests} min)
                     </span>
                   )}
                 </p>
@@ -1619,7 +1629,7 @@ const BookingPage = () => {
                           const extra = selectedServiceData.extras?.find(e => e.id === extraId);
                           if (extra) totalDuration += extra.duration || 30;
                         });
-                        const durationMultiplier = 1 + additionalGuests;
+                        const durationMultiplier = additionalGuests;
                         totalDuration *= durationMultiplier;
                         
                         console.log('Confirm Details - Total duration calculated:', totalDuration);
@@ -1660,7 +1670,7 @@ const BookingPage = () => {
                           if (extra) totalDuration += extra.duration || 30;
                         });
                         // Apply group booking multiplier
-                        const durationMultiplier = 1 + additionalGuests;
+                        const durationMultiplier = additionalGuests;
                         return totalDuration * durationMultiplier;
                       })()} minutes
                     </span>
@@ -1688,14 +1698,14 @@ const BookingPage = () => {
                   <div className="flex justify-between items-center py-2">
                     <span className="text-lg font-medium text-gray-900">
                       {selectedServiceData?.name}
-                      {additionalGuests > 0 && (
+                      {additionalGuests > 1 && (
                         <span className="text-sm text-gray-500 ml-2">
-                          x{1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
+                          x{additionalGuests} ({additionalGuests === 1 ? '1 person' : `${additionalGuests} people`})
                         </span>
                       )}
                     </span>
                      <span className="text-lg font-bold text-green-600">
-                       {formatPrice((selectedServiceData?.price || 0) * (1 + additionalGuests))}
+                       {formatPrice((selectedServiceData?.price || 0) * additionalGuests)}
                      </span>
                   </div>
                   
@@ -1706,13 +1716,13 @@ const BookingPage = () => {
                       <div key={extra.id} className="flex justify-between items-center py-1 text-gray-600">
                         <span>
                           {extra.name}
-                          {additionalGuests > 0 && (
+                          {additionalGuests > 1 && (
                             <span className="text-sm text-gray-500 ml-2">
-                              x{1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
+                              x{additionalGuests} ({additionalGuests === 1 ? '1 person' : `${additionalGuests} people`})
                             </span>
                           )}
                         </span>
-                        <span className="text-green-600">+{formatPrice(extra.price * (1 + additionalGuests))}</span>
+                        <span className="text-green-600">+{formatPrice(extra.price * additionalGuests)}</span>
                       </div>
                     ) : null;
                   })}
@@ -1859,7 +1869,7 @@ const BookingPage = () => {
                         const extra = finalService.extras?.find(e => e.id === extraId);
                         if (extra) totalDuration += extra.duration || 30;
                       });
-                      const durationMultiplier = 1 + additionalGuests;
+                      const durationMultiplier = additionalGuests;
                       totalDuration *= durationMultiplier;
                       
                       console.log('Confirmation - Total duration calculated:', totalDuration);
