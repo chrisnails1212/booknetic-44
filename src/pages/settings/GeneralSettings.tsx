@@ -20,6 +20,7 @@ const GeneralSettings = () => {
     allowCancellation: true,
     requireConfirmation: false,
     groupBooking: true,
+    groupBookingGuestLimit: 10,
     emailNotifications: true,
     smsNotifications: false
   });
@@ -115,6 +116,21 @@ const GeneralSettings = () => {
                   onCheckedChange={(checked) => setSettings({...settings, groupBooking: checked})}
                 />
               </div>
+              {settings.groupBooking && (
+                <div className="grid gap-2">
+                  <Label htmlFor="guestLimit">Maximum Guests</Label>
+                  <Input
+                    id="guestLimit"
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={settings.groupBookingGuestLimit}
+                    onChange={(e) => setSettings({...settings, groupBookingGuestLimit: parseInt(e.target.value) || 10})}
+                    placeholder="10"
+                  />
+                  <p className="text-xs text-muted-foreground">Maximum number of guests that can be added to a booking</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

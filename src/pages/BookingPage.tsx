@@ -44,6 +44,7 @@ const BookingPage = () => {
   const [availableCoupon, setAvailableCoupon] = useState<any>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [groupBookingEnabled, setGroupBookingEnabled] = useState(true);
+  const [guestLimit, setGuestLimit] = useState(10);
 
   // Load group booking setting from localStorage
   useEffect(() => {
@@ -52,9 +53,11 @@ const BookingPage = () => {
       try {
         const parsedSettings = JSON.parse(savedSettings);
         setGroupBookingEnabled(parsedSettings.groupBooking !== false); // Default to true
+        setGuestLimit(parsedSettings.groupBookingGuestLimit || 10); // Default to 10
       } catch (error) {
         console.error('Error parsing general settings:', error);
         setGroupBookingEnabled(true); // Default to true if parsing fails
+        setGuestLimit(10); // Default to 10 if parsing fails
       }
     }
   }, []);
@@ -748,8 +751,8 @@ const BookingPage = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setAdditionalGuests(Math.min(10, additionalGuests + 1))}
-                            disabled={additionalGuests >= 10}
+                            onClick={() => setAdditionalGuests(Math.min(guestLimit, additionalGuests + 1))}
+                            disabled={additionalGuests >= guestLimit}
                             className="w-8 h-8 p-0"
                           >
                             <Plus className="w-4 h-4" />
