@@ -79,7 +79,7 @@ const BookingPage = () => {
   const [additionalGuests, setAdditionalGuests] = useState(0);
   const [bringPeopleEnabled, setBringPeopleEnabled] = useState(false);
   const [guestServices, setGuestServices] = useState<{[guestIndex: number]: string}>({});
-  const [guestServiceExtras, setGuestServiceExtras] = useState<string[]>([]);
+  const [guestServiceExtras, setGuestServiceExtras] = useState<{[guestIndex: number]: string[]}>({});
 
   const steps = [
     'Location',
@@ -134,9 +134,11 @@ const BookingPage = () => {
     });
 
     // Add guest service extras
-    guestServiceExtras.forEach(extraId => {
-      const extra = selectedService.extras?.find(e => e.id === extraId);
-      if (extra) subtotal += extra.price;
+    Object.values(guestServiceExtras).forEach(guestExtras => {
+      guestExtras.forEach(extraId => {
+        const extra = selectedService.extras?.find(e => e.id === extraId);
+        if (extra) subtotal += extra.price;
+      });
     });
 
     let totalDiscount = 0;
@@ -179,9 +181,11 @@ const BookingPage = () => {
     });
 
     // Add guest service extras
-    guestServiceExtras.forEach(extraId => {
-      const extra = selectedService.extras?.find(e => e.id === extraId);
-      if (extra) subtotal += extra.price;
+    Object.values(guestServiceExtras).forEach(guestExtras => {
+      guestExtras.forEach(extraId => {
+        const extra = selectedService.extras?.find(e => e.id === extraId);
+        if (extra) subtotal += extra.price;
+      });
     });
 
     // Apply coupon discount
@@ -912,32 +916,45 @@ const BookingPage = () => {
 
             {/* Guest Service Extras - Only show when bringing people */}
             {bringPeopleEnabled && selectedService?.extras && selectedService.extras.length > 0 && (
-              <div className="space-y-3 mt-6">
+              <div className="space-y-4 mt-6">
                 <h4 className="text-md font-semibold">Guest Service Extras</h4>
-                <p className="text-sm text-gray-600">Add extras for your guests (optional)</p>
-                {selectedService.extras.map((extra) => (
-                  <Card key={`guest-${extra.id}`} className="p-3 border-blue-200 bg-blue-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Checkbox
-                          checked={guestServiceExtras.includes(extra.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setGuestServiceExtras([...guestServiceExtras, extra.id]);
-                            } else {
-                              setGuestServiceExtras(guestServiceExtras.filter(id => id !== extra.id));
-                            }
-                          }}
-                        />
-                        <div>
-                          <h5 className="font-medium">{extra.name} (for guests)</h5>
-                          <p className="text-sm text-gray-600">{extra.description}</p>
-                          <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
+                <p className="text-sm text-gray-600">Add extras for each guest individually (optional)</p>
+                
+                {Array.from({ length: additionalGuests }, (_, guestIndex) => (
+                  <div key={guestIndex} className="space-y-3">
+                    <h5 className="text-sm font-semibold text-blue-700">Guest {guestIndex + 1}</h5>
+                    {selectedService.extras.map((extra) => (
+                      <Card key={`guest-${guestIndex}-${extra.id}`} className="p-3 border-blue-200 bg-blue-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <Checkbox
+                              checked={guestServiceExtras[guestIndex]?.includes(extra.id) || false}
+                              onCheckedChange={(checked) => {
+                                const currentGuestExtras = guestServiceExtras[guestIndex] || [];
+                                if (checked) {
+                                  setGuestServiceExtras({
+                                    ...guestServiceExtras,
+                                    [guestIndex]: [...currentGuestExtras, extra.id]
+                                  });
+                                } else {
+                                  setGuestServiceExtras({
+                                    ...guestServiceExtras,
+                                    [guestIndex]: currentGuestExtras.filter(id => id !== extra.id)
+                                  });
+                                }
+                              }}
+                            />
+                            <div>
+                              <h6 className="font-medium">{extra.name}</h6>
+                              <p className="text-sm text-gray-600">{extra.description}</p>
+                              <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
                         </div>
-                      </div>
-                      <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
-                    </div>
-                  </Card>
+                      </Card>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
