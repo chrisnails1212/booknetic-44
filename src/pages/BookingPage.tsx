@@ -77,6 +77,7 @@ const BookingPage = () => {
   });
   
   const [additionalGuests, setAdditionalGuests] = useState(0);
+  const [bringPeopleEnabled, setBringPeopleEnabled] = useState(false);
 
   const steps = [
     'Location',
@@ -726,38 +727,60 @@ const BookingPage = () => {
                   <div className="mt-6 p-4 border rounded-lg bg-gray-50">
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-1">
-                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                          <CheckCircle className="w-3 h-3 text-white" />
-                        </div>
+                        <Checkbox
+                          id="bringPeople"
+                          checked={bringPeopleEnabled}
+                          onCheckedChange={(checked) => {
+                            setBringPeopleEnabled(!!checked);
+                            if (!checked) {
+                              setAdditionalGuests(0);
+                            }
+                          }}
+                        />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 mb-2">✓ Bring People with You</h4>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Number of people: 
+                        <Label htmlFor="bringPeople" className="font-medium text-gray-900 cursor-pointer">
+                          Bring People with You
+                        </Label>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Add additional people to your booking
                         </p>
-                        <div className="flex items-center space-x-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setAdditionalGuests(Math.max(0, additionalGuests - 1))}
-                            disabled={additionalGuests === 0}
-                            className="w-8 h-8 p-0"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <span className="text-lg font-medium min-w-[2rem] text-center">
-                            {additionalGuests}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setAdditionalGuests(Math.min(guestLimit, additionalGuests + 1))}
-                            disabled={additionalGuests >= guestLimit}
-                            className="w-8 h-8 p-0"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        
+                        {bringPeopleEnabled && (
+                          <div className="mt-4">
+                            <p className="text-sm text-gray-600 mb-3">
+                              Number of additional people:
+                            </p>
+                            <div className="flex items-center space-x-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAdditionalGuests(Math.max(0, additionalGuests - 1))}
+                                disabled={additionalGuests === 0}
+                                className="w-8 h-8 p-0"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                              <span className="text-lg font-medium min-w-[2rem] text-center">
+                                {additionalGuests}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAdditionalGuests(Math.min(guestLimit, additionalGuests + 1))}
+                                disabled={additionalGuests >= guestLimit}
+                                className="w-8 h-8 p-0"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            {additionalGuests > 0 && (
+                              <p className="text-xs text-blue-600 mt-2">
+                                Total: {1 + additionalGuests} people (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
