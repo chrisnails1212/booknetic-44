@@ -20,7 +20,8 @@ const GeneralSettings = () => {
     allowCancellation: true,
     requireConfirmation: false,
     emailNotifications: true,
-    smsNotifications: false
+    smsNotifications: false,
+    enableGroupBooking: false
   });
 
   const handleSave = () => {
@@ -83,6 +84,14 @@ const GeneralSettings = () => {
                   id="requireConfirmation" 
                   checked={settings.requireConfirmation}
                   onCheckedChange={(checked) => setSettings({...settings, requireConfirmation: checked})}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="enableGroupBooking">Enable Group Booking</Label>
+                <Switch 
+                  id="enableGroupBooking" 
+                  checked={settings.enableGroupBooking}
+                  onCheckedChange={(checked) => setSettings({...settings, enableGroupBooking: checked})}
                 />
               </div>
             </CardContent>
