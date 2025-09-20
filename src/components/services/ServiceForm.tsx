@@ -126,10 +126,6 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
     staffIds: [] as string[],
     extras: [] as ServiceExtra[],
     image: '',
-    groupBooking: {
-      enabled: false,
-      maxAdditionalGuests: 5,
-    },
   });
 
   const [pictureFile, setPictureFile] = useState<File | null>(null);
@@ -155,10 +151,6 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
         staffIds: service.staffIds,
         extras: service.extras,
         image: service.image || '',
-        groupBooking: service.groupBooking || {
-          enabled: false,
-          maxAdditionalGuests: 5,
-        },
       });
       setPicturePreview(service.image || '');
     } else {
@@ -171,10 +163,6 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
         staffIds: [],
         extras: [],
         image: '',
-        groupBooking: {
-          enabled: false,
-          maxAdditionalGuests: 5,
-        },
       });
       setPicturePreview('');
       setPictureFile(null);
@@ -255,10 +243,6 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
         staffIds: [],
         extras: [],
         image: '',
-        groupBooking: {
-          enabled: false,
-          maxAdditionalGuests: 5,
-        },
       });
       setPicturePreview('');
       setPictureFile(null);
@@ -537,64 +521,6 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
                     </div>
                   </div>
 
-                  {/* Group Booking Settings */}
-                  <div className="space-y-4">
-                    <Label className="text-lg font-medium">Group Booking Settings</Label>
-                    <p className="text-sm text-gray-600">Allow customers to bring additional guests to this service</p>
-                    
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="space-y-1">
-                          <Label htmlFor="group-booking-enabled" className="font-medium">Enable Group Booking</Label>
-                          <p className="text-sm text-gray-500">Allow customers to add additional guests to this service</p>
-                        </div>
-                        <Switch
-                          id="group-booking-enabled"
-                          checked={formData.groupBooking.enabled}
-                          onCheckedChange={(checked) => 
-                            handleInputChange('groupBooking', { ...formData.groupBooking, enabled: checked })
-                          }
-                        />
-                      </div>
-
-                      {formData.groupBooking.enabled && (
-                        <>
-                          <div className="space-y-3">
-                            <Label htmlFor="max-guests">Maximum Additional Guests</Label>
-                            <Select 
-                              value={formData.groupBooking.maxAdditionalGuests.toString()} 
-                              onValueChange={(value) => 
-                                handleInputChange('groupBooking', { 
-                                  ...formData.groupBooking, 
-                                  maxAdditionalGuests: parseInt(value) 
-                                })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select maximum guests..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                                  <SelectItem key={num} value={num.toString()}>
-                                    {num} additional guest{num > 1 ? 's' : ''}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                            <h4 className="font-medium text-blue-900">Group Booking Impact</h4>
-                            <div className="text-sm text-blue-800 space-y-1">
-                              <p>• Price: Multiplied by (1 + additional guests)</p>
-                              <p>• Duration: Multiplied by (1 + additional guests)</p>
-                              <p>• Example: With 1 guest, price becomes {formatPrice(formData.price * 2)} and duration becomes {formData.duration * 2} minutes</p>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
                 </TabsContent>
 
                 <TabsContent value="staff" className="space-y-6">
