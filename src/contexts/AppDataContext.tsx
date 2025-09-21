@@ -39,10 +39,6 @@ export interface Service {
   extras: ServiceExtra[];
   description?: string;
   image?: string;
-  groupBooking?: {
-    enabled: boolean;
-    maxAdditionalGuests: number;
-  };
 }
 
 export interface ServiceExtra {
@@ -134,7 +130,7 @@ export interface Appointment {
   appliedTaxes?: string[];
   customFields: Record<string, string>;
   totalPrice: number;
-  additionalGuests?: number;
+  
 }
 
 interface AppDataContextType {

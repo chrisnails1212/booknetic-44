@@ -39,7 +39,7 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
     time: '',
     status: 'Pending' as 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Rescheduled' | 'Rejected' | 'No-show' | 'Emergency',
     notes: '',
-    additionalGuests: 0
+    
   });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
   const [dynamicFieldValues, setDynamicFieldValues] = useState<Record<string, any>>({});
@@ -285,7 +285,7 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
         time: convertTo24Hour(appointment.time),
         status: appointment.status,
         notes: appointment.notes || '',
-        additionalGuests: appointment.additionalGuests || 0
+        
       });
       setSelectedExtras(appointment.selectedExtras || []);
       setSelectedCoupons(appointment.appliedCoupons || []);
@@ -436,16 +436,12 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
   const calculateTotalPrice = () => {
     let total = selectedService?.price || 0;
     
-    // Apply group booking multiplier to base price
-    const guestMultiplier = 1 + (appointmentData.additionalGuests || 0);
-    total *= guestMultiplier;
-    
-    // Add extras cost (also multiplied by guest count)
+    // Add extras cost
     if (selectedService?.extras) {
       selectedExtras.forEach(extraId => {
         const extra = selectedService.extras.find(e => e.id === extraId);
         if (extra) {
-          total += extra.price * guestMultiplier;
+          total += extra.price;
         }
       });
     }
@@ -580,7 +576,7 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
         appliedTaxes: selectedTaxes,
         customFields: convertedCustomFields,
         totalPrice: calculateTotalPrice(),
-        additionalGuests: appointmentData.additionalGuests || 0
+        
       };
 
       if (appointment) {
@@ -846,54 +842,6 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
                   </div>
                 )}
 
-                {/* Group Booking Information */}
-                {selectedService?.groupBooking?.enabled && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="text-sm font-medium text-green-800 mb-3">
-                      Group Booking
-                    </div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-green-700">Additional guests:</span>
-                      <div className="flex items-center space-x-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAppointmentData(prev => ({ 
-                            ...prev, 
-                            additionalGuests: Math.max(0, (prev.additionalGuests || 0) - 1) 
-                          }))}
-                          disabled={!appointmentData.additionalGuests || appointmentData.additionalGuests === 0}
-                          className="h-8 w-8 p-0"
-                        >
-                          -
-                        </Button>
-                        <span className="text-sm font-medium text-green-800 min-w-[2rem] text-center">
-                          {appointmentData.additionalGuests || 0}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAppointmentData(prev => ({ 
-                            ...prev, 
-                            additionalGuests: Math.min(
-                              selectedService.groupBooking?.maxAdditionalGuests || 5, 
-                              (prev.additionalGuests || 0) + 1
-                            ) 
-                          }))}
-                          disabled={appointmentData.additionalGuests >= (selectedService.groupBooking?.maxAdditionalGuests || 5)}
-                          className="h-8 w-8 p-0"
-                        >
-                          +
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="text-sm text-green-700">
-                      Total participants: {1 + (appointmentData.additionalGuests || 0)} (you + {appointmentData.additionalGuests || 0} guest{(appointmentData.additionalGuests || 0) > 1 ? 's' : ''})
-                    </div>
-                  </div>
-                )}
                 
                 {/* Bottom padding for proper scrolling */}
                 <div className="pb-6"></div>
@@ -1153,14 +1101,13 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
                     {formatPrice(calculateTotalPrice())}
                   </span>
                 </div>
-                {(selectedExtras.length > 0 || (appointmentData.additionalGuests || 0) > 0) && (
+                {selectedExtras.length > 0 && (
                   <div className="text-sm text-gray-600 mt-1">
                     {(() => {
-                      const guestMultiplier = 1 + (appointmentData.additionalGuests || 0);
-                      const basePrice = selectedService.price * guestMultiplier;
+                      const basePrice = selectedService.price;
                       const extrasPrice = selectedService.extras
                         .filter(extra => selectedExtras.includes(extra.id))
-                        .reduce((sum, extra) => sum + extra.price * guestMultiplier, 0);
+                        .reduce((sum, extra) => sum + extra.price, 0);
                       
                       return `Base: ${formatPrice(basePrice)}${extrasPrice > 0 ? ` + Extras: ${formatPrice(extrasPrice)}` : ''}`;
                     })()}

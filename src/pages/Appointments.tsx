@@ -273,10 +273,9 @@ const Appointments = () => {
                           <div className="text-sm text-gray-500">
                             {(() => {
                               const baseDuration = service?.duration || 0;
-                              const multiplier = 1 + (appointment.additionalGuests || 0);
-                              const totalDuration = baseDuration * multiplier;
+                              const totalDuration = baseDuration;
                               const basePrice = service?.price || 0;
-                              const totalPrice = basePrice * multiplier;
+                              const totalPrice = basePrice;
                               
                               return `${totalDuration} min • ${formatPrice(totalPrice)}`;
                             })()}
@@ -289,18 +288,9 @@ const Appointments = () => {
                           {location?.name || 'Unknown Location'}
                         </TableCell>
                         <TableCell>
-                          {appointment.additionalGuests ? (
-                            <div className="text-center">
-                              <div className="font-medium text-blue-600">
-                                +{appointment.additionalGuests}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                guest{appointment.additionalGuests > 1 ? 's' : ''}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-center text-gray-400">-</div>
-                          )}
+                          <div className="text-center text-gray-400">
+                            -
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>

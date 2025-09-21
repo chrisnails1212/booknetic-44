@@ -39,9 +39,6 @@ const Dashboard = () => {
         });
       }
       
-      // Apply group booking multiplier
-      const guestMultiplier = 1 + (apt.additionalGuests || 0);
-      baseDuration = baseDuration * guestMultiplier;
       
       return sum + baseDuration;
     }, 0);
