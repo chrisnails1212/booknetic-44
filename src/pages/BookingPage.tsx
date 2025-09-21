@@ -80,6 +80,7 @@ const BookingPage = () => {
   const [bringPeopleEnabled, setBringPeopleEnabled] = useState(false);
   const [guestServices, setGuestServices] = useState<{[guestIndex: number]: string}>({});
   const [guestServiceExtras, setGuestServiceExtras] = useState<{[guestIndex: number]: string[]}>({});
+  const [guestStaffSelections, setGuestStaffSelections] = useState<{[guestIndex: number]: string}>({});
 
   const steps = [
     'Location',
@@ -235,7 +236,19 @@ const BookingPage = () => {
       case 3:
         return true; // Service extras step - no required selection
       case 4:
-        return bookingData.staff !== '';
+        // Validate main staff selection
+        if (bookingData.staff === '') return false;
+        
+        // Validate guest staff selections if guests are present
+        if (bringPeopleEnabled && additionalGuests > 0) {
+          for (let i = 0; i < additionalGuests; i++) {
+            const guestServiceId = guestServices[i];
+            if (guestServiceId && !guestStaffSelections[i]) {
+              return false; // Guest has a service but no staff selected
+            }
+          }
+        }
+        return true;
       case 5:
         return bookingData.date !== '' && bookingData.time !== '';
       case 6:
@@ -809,10 +822,16 @@ const BookingPage = () => {
                                     setAdditionalGuests(newCount);
                                     // Remove guest services for removed guests
                                     const newGuestServices = { ...guestServices };
+                                    const newGuestServiceExtras = { ...guestServiceExtras };
+                                    const newGuestStaffSelections = { ...guestStaffSelections };
                                     for (let i = newCount; i < additionalGuests; i++) {
                                       delete newGuestServices[i];
+                                      delete newGuestServiceExtras[i];
+                                      delete newGuestStaffSelections[i];
                                     }
                                     setGuestServices(newGuestServices);
+                                    setGuestServiceExtras(newGuestServiceExtras);
+                                    setGuestStaffSelections(newGuestStaffSelections);
                                   }}
                                   disabled={additionalGuests === 0}
                                   className="w-8 h-8 p-0"
@@ -1023,70 +1042,188 @@ const BookingPage = () => {
 
       case 4:
         const availableStaff = getAvailableStaff();
+        
+        // Helper function to get available staff for a specific service and location
+        const getAvailableStaffForService = (serviceId: string) => {
+          return staff.filter(s => 
+            s.services.includes(serviceId) && 
+            s.locations.includes(bookingData.location)
+          );
+        };
+        
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h3 className="text-lg font-semibold">Select Staff</h3>
-            <div className="space-y-3">
-              <Card
-                className={`cursor-pointer transition-all ${
-                  bookingData.staff === 'any' ? 'ring-2 bg-blue-50' : 'hover:shadow-md'
-                }`}
-                style={{
-                  borderColor: bookingData.staff === 'any' ? theme.activeColor : undefined,
-                  '--tw-ring-color': theme.activeColor
-                } as React.CSSProperties}
-                onClick={() => setBookingData({ ...bookingData, staff: 'any' })}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-gray-500" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Any Available Staff</h4>
-                      <p className="text-sm text-gray-600">First available appointment</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              {availableStaff.map((staffMember) => (
+            
+            {/* Main Service Staff Selection */}
+            <div className="space-y-4">
+              <h4 className="text-md font-semibold text-gray-800">Your Service Staff</h4>
+              <div className="space-y-3">
                 <Card
-                  key={staffMember.id}
                   className={`cursor-pointer transition-all ${
-                    bookingData.staff === staffMember.id
-                      ? 'ring-2 bg-blue-50'
-                      : 'hover:shadow-md'
+                    bookingData.staff === 'any' ? 'ring-2 bg-blue-50' : 'hover:shadow-md'
                   }`}
                   style={{
-                    borderColor: bookingData.staff === staffMember.id ? theme.activeColor : undefined,
+                    borderColor: bookingData.staff === 'any' ? theme.activeColor : undefined,
                     '--tw-ring-color': theme.activeColor
                   } as React.CSSProperties}
-                  onClick={() => setBookingData({ ...bookingData, staff: staffMember.id })}
+                  onClick={() => setBookingData({ ...bookingData, staff: 'any' })}
                 >
-                   <CardContent className="p-4">
-                     <div className="flex items-center space-x-3">
-                       <Avatar className="w-12 h-12">
-                         {staffMember.avatar ? (
-                           <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
-                         ) : (
-                           <AvatarFallback 
-                             className="text-white font-semibold"
-                             style={{ backgroundColor: theme.primaryColor }}
-                           >
-                             {staffMember.name.split(' ').map(n => n[0]).join('')}
-                           </AvatarFallback>
-                         )}
-                       </Avatar>
-                       <div>
-                         <h4 className="font-medium">{staffMember.name}</h4>
-                         <p className="text-sm text-gray-600">{staffMember.role}</p>
-                         <p className="text-sm text-gray-500">{staffMember.department}</p>
-                       </div>
-                     </div>
-                   </CardContent>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                        <User className="w-6 h-6 text-gray-500" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Any Available Staff</h4>
+                        <p className="text-sm text-gray-600">First available appointment</p>
+                      </div>
+                    </div>
+                  </CardContent>
                 </Card>
-              ))}
+                {availableStaff.map((staffMember) => (
+                  <Card
+                    key={staffMember.id}
+                    className={`cursor-pointer transition-all ${
+                      bookingData.staff === staffMember.id
+                        ? 'ring-2 bg-blue-50'
+                        : 'hover:shadow-md'
+                    }`}
+                    style={{
+                      borderColor: bookingData.staff === staffMember.id ? theme.activeColor : undefined,
+                      '--tw-ring-color': theme.activeColor
+                    } as React.CSSProperties}
+                    onClick={() => setBookingData({ ...bookingData, staff: staffMember.id })}
+                  >
+                     <CardContent className="p-4">
+                       <div className="flex items-center space-x-3">
+                         <Avatar className="w-12 h-12">
+                           {staffMember.avatar ? (
+                             <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
+                           ) : (
+                             <AvatarFallback 
+                               className="text-white font-semibold"
+                               style={{ backgroundColor: theme.primaryColor }}
+                             >
+                               {staffMember.name.split(' ').map(n => n[0]).join('')}
+                             </AvatarFallback>
+                           )}
+                         </Avatar>
+                         <div>
+                           <h4 className="font-medium">{staffMember.name}</h4>
+                           <p className="text-sm text-gray-600">{staffMember.role}</p>
+                           <p className="text-sm text-gray-500">{staffMember.department}</p>
+                         </div>
+                       </div>
+                     </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
+
+            {/* Guest Staff Selection */}
+            {bringPeopleEnabled && additionalGuests > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-md font-semibold text-blue-700">Guest Staff Selection</h4>
+                <p className="text-sm text-gray-600">Select staff for each guest's service individually</p>
+                
+                <div className="space-y-6">
+                  {Array.from({ length: additionalGuests }, (_, index) => {
+                    const guestServiceId = guestServices[index];
+                    const guestService = services.find(s => s.id === guestServiceId);
+                    const availableGuestStaff = guestServiceId ? getAvailableStaffForService(guestServiceId) : [];
+                    
+                    if (!guestServiceId || !guestService) {
+                      return (
+                        <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h5 className="text-md font-semibold text-gray-400">Guest {index + 1}</h5>
+                            <span className="text-sm text-gray-400">- No service selected</span>
+                          </div>
+                          <p className="text-sm text-gray-500">Please select a service for this guest first.</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={index} className="space-y-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
+                        <div className="flex items-center space-x-3">
+                          <h5 className="text-md font-semibold text-blue-700">Guest {index + 1}</h5>
+                          <span className="text-sm text-gray-600">- {guestService.name}</span>
+                        </div>
+                        
+                        <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                          {/* Any available staff option for guest */}
+                          <Card
+                            className={`cursor-pointer transition-all ${
+                              guestStaffSelections[index] === 'any' ? 'ring-2 bg-white' : 'hover:shadow-md bg-white'
+                            }`}
+                            style={{
+                              borderColor: guestStaffSelections[index] === 'any' ? theme.activeColor : undefined,
+                              '--tw-ring-color': theme.activeColor
+                            } as React.CSSProperties}
+                            onClick={() => setGuestStaffSelections(prev => ({...prev, [index]: 'any'}))}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                  <User className="w-5 h-5 text-gray-500" />
+                                </div>
+                                <div>
+                                  <h6 className="font-medium text-sm">Any Available Staff</h6>
+                                  <p className="text-xs text-gray-600">First available appointment</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          
+                          {/* Specific staff options for guest */}
+                          {availableGuestStaff.map((staffMember) => (
+                            <Card
+                              key={`guest-${index}-${staffMember.id}`}
+                              className={`cursor-pointer transition-all ${
+                                guestStaffSelections[index] === staffMember.id
+                                  ? 'ring-2 bg-white'
+                                  : 'hover:shadow-md bg-white'
+                              }`}
+                              style={{
+                                borderColor: guestStaffSelections[index] === staffMember.id ? theme.activeColor : undefined,
+                                '--tw-ring-color': theme.activeColor
+                              } as React.CSSProperties}
+                              onClick={() => setGuestStaffSelections(prev => ({...prev, [index]: staffMember.id}))}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar className="w-10 h-10">
+                                    {staffMember.avatar ? (
+                                      <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
+                                    ) : (
+                                      <AvatarFallback 
+                                        className="text-white font-semibold text-xs"
+                                        style={{ backgroundColor: theme.primaryColor }}
+                                      >
+                                        {staffMember.name.split(' ').map(n => n[0]).join('')}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div>
+                                    <h6 className="font-medium text-sm">{staffMember.name}</h6>
+                                    <p className="text-xs text-gray-600">{staffMember.role}</p>
+                                    {staffMember.department && (
+                                      <p className="text-xs text-gray-500">{staffMember.department}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         );
 
