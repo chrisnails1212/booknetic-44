@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,46 +13,17 @@ import { useToast } from '@/hooks/use-toast';
 const GeneralSettings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const [settings, setSettings] = useState({
     timezone: 'UTC',
     dateFormat: 'MM/DD/YYYY',
     allowCancellation: true,
     requireConfirmation: false,
-    groupBooking: true,
-    groupBookingGuestLimit: 10,
     emailNotifications: true,
     smsNotifications: false
   });
 
-  // Load settings from localStorage on component mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('generalSettings');
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings);
-        setSettings(prevSettings => ({ ...prevSettings, ...parsedSettings }));
-      } catch (error) {
-        console.error('Error parsing saved settings:', error);
-      }
-    }
-    setIsInitialLoad(false);
-  }, []);
-
-  // Save settings to localStorage whenever they change (but not on initial load)
-  useEffect(() => {
-    if (!isInitialLoad) {
-      localStorage.setItem('generalSettings', JSON.stringify(settings));
-      console.log('Settings saved to localStorage:', settings);
-    }
-  }, [settings, isInitialLoad]);
-
   const handleSave = () => {
-    // Explicitly save to localStorage
-    localStorage.setItem('generalSettings', JSON.stringify(settings));
-    console.log('Settings explicitly saved:', settings);
-    
     toast({
       title: "Settings saved",
       description: "General settings have been updated successfully.",
@@ -114,32 +85,6 @@ const GeneralSettings = () => {
                   onCheckedChange={(checked) => setSettings({...settings, requireConfirmation: checked})}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label htmlFor="groupBooking">Group Booking</Label>
-                  <p className="text-sm text-muted-foreground">Allow customers to book appointments for multiple people</p>
-                </div>
-                <Switch 
-                  id="groupBooking" 
-                  checked={settings.groupBooking}
-                  onCheckedChange={(checked) => setSettings({...settings, groupBooking: checked})}
-                />
-              </div>
-              {settings.groupBooking && (
-                <div className="grid gap-2">
-                  <Label htmlFor="guestLimit">Maximum Guests</Label>
-                  <Input
-                    id="guestLimit"
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={settings.groupBookingGuestLimit}
-                    onChange={(e) => setSettings({...settings, groupBookingGuestLimit: parseInt(e.target.value) || 10})}
-                    placeholder="10"
-                  />
-                  <p className="text-xs text-muted-foreground">Maximum number of guests that can be added to a booking</p>
-                </div>
-              )}
             </CardContent>
           </Card>
 

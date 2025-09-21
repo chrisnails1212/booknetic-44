@@ -135,8 +135,6 @@ export interface Appointment {
   customFields: Record<string, string>;
   totalPrice: number;
   additionalGuests?: number;
-  guestServices?: {[guestIndex: number]: string};
-  guestServiceExtras?: {[guestIndex: number]: string[]};
 }
 
 interface AppDataContextType {

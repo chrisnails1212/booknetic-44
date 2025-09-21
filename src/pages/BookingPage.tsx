@@ -43,24 +43,6 @@ const BookingPage = () => {
   const [availableGiftcard, setAvailableGiftcard] = useState<any>(null);
   const [availableCoupon, setAvailableCoupon] = useState<any>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [groupBookingEnabled, setGroupBookingEnabled] = useState(true);
-  const [guestLimit, setGuestLimit] = useState(10);
-
-  // Load group booking setting from localStorage
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('generalSettings');
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings);
-        setGroupBookingEnabled(parsedSettings.groupBooking !== false); // Default to true
-        setGuestLimit(parsedSettings.groupBookingGuestLimit || 10); // Default to 10
-      } catch (error) {
-        console.error('Error parsing general settings:', error);
-        setGroupBookingEnabled(true); // Default to true if parsing fails
-        setGuestLimit(10); // Default to 10 if parsing fails
-      }
-    }
-  }, []);
 
   const [bookingData, setBookingData] = useState({
     location: locations.length === 1 ? locations[0].id : '',
@@ -77,10 +59,6 @@ const BookingPage = () => {
   });
   
   const [additionalGuests, setAdditionalGuests] = useState(0);
-  const [bringPeopleEnabled, setBringPeopleEnabled] = useState(false);
-  const [guestServices, setGuestServices] = useState<{[guestIndex: number]: string}>({});
-  const [guestServiceExtras, setGuestServiceExtras] = useState<{[guestIndex: number]: string[]}>({});
-  const [guestStaffSelections, setGuestStaffSelections] = useState<{[guestIndex: number]: string}>({});
 
   const steps = [
     'Location',
@@ -128,33 +106,19 @@ const BookingPage = () => {
       if (extra) subtotal += extra.price;
     });
 
-    // Add guest services
-    Object.values(guestServices).forEach(guestServiceId => {
-      const guestService = services.find(s => s.id === guestServiceId);
-      if (guestService) subtotal += guestService.price;
-    });
-
-    // Add guest service extras
-    Object.entries(guestServiceExtras).forEach(([guestIndex, guestExtras]) => {
-      const guestServiceId = guestServices[parseInt(guestIndex)];
-      const guestService = services.find(s => s.id === guestServiceId);
-      
-      guestExtras.forEach(extraId => {
-        const extra = guestService?.extras?.find(e => e.id === extraId);
-        if (extra) subtotal += extra.price;
-      });
-    });
+    // Apply group booking multiplier
+    const multiplier = 1 + additionalGuests;
+    subtotal = subtotal * multiplier;
 
     let totalDiscount = 0;
 
     // Apply coupon discount
     if (availableCoupon) {
-      const discountValue = availableCoupon.discount;
-      if (typeof discountValue === 'string' && discountValue.includes('%')) {
-        const percentage = parseFloat(discountValue.replace('%', ''));
+      if (availableCoupon.discount.includes('%')) {
+        const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
         totalDiscount += subtotal * (percentage / 100);
-      } else if (typeof discountValue === 'string') {
-        totalDiscount += parseFloat(discountValue.replace('$', ''));
+      } else {
+        totalDiscount += parseFloat(availableCoupon.discount.replace('$', ''));
       }
     }
 
@@ -179,31 +143,17 @@ const BookingPage = () => {
       if (extra) subtotal += extra.price;
     });
 
-    // Add guest services
-    Object.values(guestServices).forEach(guestServiceId => {
-      const guestService = services.find(s => s.id === guestServiceId);
-      if (guestService) subtotal += guestService.price;
-    });
-
-    // Add guest service extras
-    Object.entries(guestServiceExtras).forEach(([guestIndex, guestExtras]) => {
-      const guestServiceId = guestServices[parseInt(guestIndex)];
-      const guestService = services.find(s => s.id === guestServiceId);
-      
-      guestExtras.forEach(extraId => {
-        const extra = guestService?.extras?.find(e => e.id === extraId);
-        if (extra) subtotal += extra.price;
-      });
-    });
+    // Apply group booking multiplier (price multiplied by 1 + additional guests)
+    const multiplier = 1 + additionalGuests;
+    subtotal = subtotal * multiplier;
 
     // Apply coupon discount
     if (availableCoupon) {
-      const discountValue = availableCoupon.discount;
-      if (typeof discountValue === 'string' && discountValue.includes('%')) {
-        const percentage = parseFloat(discountValue.replace('%', ''));
+      if (availableCoupon.discount.includes('%')) {
+        const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
         subtotal = subtotal * (1 - percentage / 100);
-      } else if (typeof discountValue === 'string') {
-        subtotal -= parseFloat(discountValue.replace('$', ''));
+      } else {
+        subtotal -= parseFloat(availableCoupon.discount.replace('$', ''));
       }
     }
 
@@ -236,19 +186,7 @@ const BookingPage = () => {
       case 3:
         return true; // Service extras step - no required selection
       case 4:
-        // Validate main staff selection
-        if (bookingData.staff === '') return false;
-        
-        // Validate guest staff selections if guests are present
-        if (bringPeopleEnabled && additionalGuests > 0) {
-          for (let i = 0; i < additionalGuests; i++) {
-            const guestServiceId = guestServices[i];
-            if (guestServiceId && !guestStaffSelections[i]) {
-              return false; // Guest has a service but no staff selected
-            }
-          }
-        }
-        return true;
+        return bookingData.staff !== '';
       case 5:
         return bookingData.date !== '' && bookingData.time !== '';
       case 6:
@@ -300,17 +238,10 @@ const BookingPage = () => {
     if (validateStep() && currentStep < steps.length) {
       let nextStep = currentStep + 1;
       
-      // Skip Service Extras step if no extras are available for main service and no guest services with extras
+      // Skip Service Extras step if no extras are available
       if (currentStep === 2) { // Coming from Service selection
         const selectedService = services.find(s => s.id === bookingData.service);
-        const hasMainServiceExtras = selectedService?.extras && selectedService.extras.length > 0;
-        
-        const hasGuestServiceExtras = bringPeopleEnabled && Object.values(guestServices).some(guestServiceId => {
-          const guestService = services.find(s => s.id === guestServiceId);
-          return guestService?.extras && guestService.extras.length > 0;
-        });
-        
-        if (!hasMainServiceExtras && !hasGuestServiceExtras) {
+        if (!selectedService?.extras || selectedService.extras.length === 0) {
           nextStep = 4; // Skip to Staff selection
         }
       }
@@ -330,17 +261,10 @@ const BookingPage = () => {
     if (currentStep > minStep) {
       let previousStep = currentStep - 1;
       
-      // Skip Service Extras step when going back if no extras are available for main service and no guest services with extras
+      // Skip Service Extras step when going back if no extras are available
       if (currentStep === 4) { // Going back from Staff selection
         const selectedService = services.find(s => s.id === bookingData.service);
-        const hasMainServiceExtras = selectedService?.extras && selectedService.extras.length > 0;
-        
-        const hasGuestServiceExtras = bringPeopleEnabled && Object.values(guestServices).some(guestServiceId => {
-          const guestService = services.find(s => s.id === guestServiceId);
-          return guestService?.extras && guestService.extras.length > 0;
-        });
-        
-        if (!hasMainServiceExtras && !hasGuestServiceExtras) {
+        if (!selectedService?.extras || selectedService.extras.length === 0) {
           previousStep = 2; // Go back to Service selection
         }
       }
@@ -593,7 +517,7 @@ const BookingPage = () => {
         staffId: bookingData.staff,
         serviceId: bookingData.service,
         locationId: bookingData.location,
-        date: bookingData.date ? new Date(bookingData.date) : new Date(),
+        date: new Date(bookingData.date),
         time: bookingData.time,
         status: 'Confirmed',
         notes: note,
@@ -607,9 +531,7 @@ const BookingPage = () => {
         ).map(tax => tax.id),
         customFields: convertedCustomFields,
         totalPrice: calculateTotal(),
-        additionalGuests,
-        guestServices,
-        guestServiceExtras
+        additionalGuests
       });
 
       console.log('Booking submitted:', {
@@ -657,7 +579,7 @@ const BookingPage = () => {
         localStorage.setItem('formResponses', JSON.stringify(existingResponses));
       });
 
-      setCurrentStep(9); // Move to confirmation step
+      setCurrentStep(8); // Move to confirmation step
       
       toast({
         title: "Booking Confirmed!",
@@ -776,163 +698,81 @@ const BookingPage = () => {
                  </Card>
                ))}
              </div>
-              
-              {/* Group Booking UI */}
-              {groupBookingEnabled && (() => {
-                const selectedService = services.find(s => s.id === bookingData.service);
-                if (!selectedService) return null;
-                
-                return (
-                  <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 mt-1">
-                        <Checkbox
-                          id="bringPeople"
-                          checked={bringPeopleEnabled}
-                          onCheckedChange={(checked) => {
-                            setBringPeopleEnabled(!!checked);
-                            if (!checked) {
-                               setAdditionalGuests(0);
-                               setGuestServices({});
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <Label htmlFor="bringPeople" className="font-medium text-gray-900 cursor-pointer">
-                          Bring People with You
-                        </Label>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Add additional people and services to your booking
-                        </p>
-                        
-                        {bringPeopleEnabled && (
-                          <div className="mt-4 space-y-6">
-                            {/* Number of Additional People */}
-                            <div>
-                              <p className="text-sm text-gray-600 mb-3">
-                                Number of additional people:
-                              </p>
-                              <div className="flex items-center space-x-4">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const newCount = Math.max(0, additionalGuests - 1);
-                                    setAdditionalGuests(newCount);
-                                    // Remove guest services for removed guests
-                                    const newGuestServices = { ...guestServices };
-                                    const newGuestServiceExtras = { ...guestServiceExtras };
-                                    const newGuestStaffSelections = { ...guestStaffSelections };
-                                    for (let i = newCount; i < additionalGuests; i++) {
-                                      delete newGuestServices[i];
-                                      delete newGuestServiceExtras[i];
-                                      delete newGuestStaffSelections[i];
-                                    }
-                                    setGuestServices(newGuestServices);
-                                    setGuestServiceExtras(newGuestServiceExtras);
-                                    setGuestStaffSelections(newGuestStaffSelections);
-                                  }}
-                                  disabled={additionalGuests === 0}
-                                  className="w-8 h-8 p-0"
-                                >
-                                  <Minus className="w-4 h-4" />
-                                </Button>
-                                <span className="text-lg font-medium min-w-[2rem] text-center">
-                                  {additionalGuests}
-                                </span>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setAdditionalGuests(Math.min(guestLimit, additionalGuests + 1))}
-                                  disabled={additionalGuests >= guestLimit}
-                                  className="w-8 h-8 p-0"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              {additionalGuests > 0 && (
-                                <p className="text-xs text-blue-600 mt-2">
-                                  Total: {1 + additionalGuests} people (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Service Selection for Guests */}
-                            {additionalGuests > 0 && (
-                              <div>
-                                <p className="text-sm font-medium text-gray-900 mb-3">
-                                  Select services for each additional person:
-                                </p>
-                                <div className="space-y-3">
-                                  {Array.from({ length: additionalGuests }, (_, index) => (
-                                    <div key={index} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg bg-white">
-                                      <span className="text-sm font-medium text-gray-700 min-w-[100px]">
-                                        Guest {index + 1}:
-                                      </span>
-                                      <Select
-                                        value={guestServices[index] || ''}
-                                        onValueChange={(value) => {
-                                          setGuestServices(prev => ({
-                                            ...prev,
-                                            [index]: value
-                                          }));
-                                        }}
-                                      >
-                                        <SelectTrigger className="flex-1">
-                                          <SelectValue placeholder="Select a service" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {services
-                                            .filter(service => {
-                                              // Filter services available at current location
-                                              const availableStaff = staff.filter(s => 
-                                                s.services.includes(service.id) && 
-                                                s.locations.includes(bookingData.location)
-                                              );
-                                              return availableStaff.length > 0;
-                                            })
-                                            .map((service) => (
-                                              <SelectItem key={service.id} value={service.id}>
-                                                <div className="flex justify-between items-center w-full">
-                                                  <span>{service.name}</span>
-                                                  <span className="ml-2 text-gray-500">{formatPrice(service.price)}</span>
-                                                </div>
-                                              </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+             
+             {/* Group Booking UI */}
+             {(() => {
+               const selectedService = services.find(s => s.id === bookingData.service);
+               if (!selectedService?.groupBooking?.enabled) return null;
+               
+               return (
+                 <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                   <div className="flex items-start space-x-3">
+                     <div className="flex-shrink-0 mt-1">
+                       <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                         <CheckCircle className="w-3 h-3 text-white" />
+                       </div>
+                     </div>
+                     <div className="flex-1">
+                       <h4 className="font-medium text-gray-900 mb-2">✓ Bring People with You</h4>
+                       <p className="text-sm text-gray-600 mb-4">
+                         Number of people: 
+                       </p>
+                       <div className="flex items-center space-x-4">
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => setAdditionalGuests(Math.max(0, additionalGuests - 1))}
+                           disabled={additionalGuests === 0}
+                           className="w-8 h-8 p-0"
+                         >
+                           <Minus className="w-4 h-4" />
+                         </Button>
+                         <span className="text-lg font-medium min-w-[2rem] text-center">
+                           {additionalGuests}
+                         </span>
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => setAdditionalGuests(Math.min(selectedService.groupBooking?.maxAdditionalGuests || 5, additionalGuests + 1))}
+                           disabled={additionalGuests >= (selectedService.groupBooking?.maxAdditionalGuests || 5)}
+                           className="w-8 h-8 p-0"
+                         >
+                           <Plus className="w-4 h-4" />
+                         </Button>
+                       </div>
+                       
+                       {additionalGuests > 0 && (
+                         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                           <div className="text-sm space-y-1">
+                             <div className="flex justify-between">
+                               <span>Service Price:</span>
+                               <span>{formatPrice((selectedService.price * (1 + additionalGuests)))}</span>
+                             </div>
+                             <div className="flex justify-between">
+                               <span>Duration:</span>
+                               <span>{selectedService.duration * (1 + additionalGuests)} minutes</span>
+                             </div>
+                             <div className="text-xs text-blue-600 mt-2">
+                               Price and duration multiplied by {1 + additionalGuests} (you + {additionalGuests} guest{additionalGuests > 1 ? 's' : ''})
+                             </div>
+                           </div>
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 </div>
+               );
+             })()}
            </div>
          );
 
       case 3:
         const selectedService = services.find(s => s.id === bookingData.service);
-        const guestServicesWithExtras = Object.entries(guestServices).filter(([_, guestServiceId]) => {
-          const guestService = services.find(s => s.id === guestServiceId);
-          return guestService?.extras && guestService.extras.length > 0;
-        });
-        
         return (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <h3 className="text-lg font-semibold">Service Extras</h3>
-            
-            {/* Main Service Extras */}
-            {selectedService?.extras && selectedService.extras.length > 0 && (
+            {selectedService?.extras && selectedService.extras.length > 0 ? (
               <div className="space-y-3">
-                <h4 className="text-md font-semibold text-gray-800">Your Service Extras</h4>
                 <p className="text-sm text-gray-600">Add any extras to enhance your service (optional)</p>
                 {selectedService.extras.map((extra) => (
                   <Card key={extra.id} className="p-3">
@@ -959,82 +799,10 @@ const BookingPage = () => {
                   </Card>
                 ))}
               </div>
-            )}
-
-            {/* Guest Service Extras */}
-            {bringPeopleEnabled && guestServicesWithExtras.length > 0 && (
-              <div className="space-y-4">
-                <h4 className="text-md font-semibold text-blue-700">Guest Service Extras</h4>
-                <p className="text-sm text-gray-600">Add extras for each guest's service individually (optional)</p>
-                
-                <div className="space-y-6">
-                  {guestServicesWithExtras.map(([guestIndex, guestServiceId]) => {
-                    const guestService = services.find(s => s.id === guestServiceId);
-                    if (!guestService?.extras) return null;
-
-                    return (
-                      <div key={guestIndex} className="space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <h5 className="text-md font-semibold text-blue-700">Guest {parseInt(guestIndex) + 1}</h5>
-                          <span className="text-sm text-gray-600">- {guestService.name}</span>
-                        </div>
-                        
-                        <div className="space-y-3 pl-4 border-l-2 border-blue-200">
-                          {guestService.extras.map((extra) => (
-                            <Card key={`guest-${guestIndex}-${extra.id}`} className="p-3 border-blue-200 bg-blue-50">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <Checkbox
-                                    checked={guestServiceExtras[parseInt(guestIndex)]?.includes(extra.id) || false}
-                                    onCheckedChange={(checked) => {
-                                      const currentGuestExtras = guestServiceExtras[parseInt(guestIndex)] || [];
-                                      if (checked) {
-                                        setGuestServiceExtras({
-                                          ...guestServiceExtras,
-                                          [parseInt(guestIndex)]: [...currentGuestExtras, extra.id]
-                                        });
-                                      } else {
-                                        setGuestServiceExtras({
-                                          ...guestServiceExtras,
-                                          [parseInt(guestIndex)]: currentGuestExtras.filter(id => id !== extra.id)
-                                        });
-                                      }
-                                    }}
-                                  />
-                                  <div>
-                                    <h6 className="font-medium">{extra.name}</h6>
-                                    <p className="text-sm text-gray-600">{extra.description}</p>
-                                    <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
-                                  </div>
-                                </div>
-                                <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* No extras available message */}
-            {(!selectedService?.extras || selectedService.extras.length === 0) && 
-             (!bringPeopleEnabled || guestServicesWithExtras.length === 0) && (
-              <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                  <h4 className="text-lg font-medium text-gray-700">No Service Extras Available</h4>
-                  <p className="text-sm text-gray-500 max-w-sm">
-                    The selected service{bringPeopleEnabled && additionalGuests > 0 ? 's' : ''} do not have any additional extras to choose from.
-                  </p>
-                  <p className="text-sm text-gray-400 mt-2">Click Next to continue with staff selection.</p>
-                </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No extras available for this service.</p>
+                <p className="text-sm text-gray-400 mt-2">Click Next to continue with staff selection.</p>
               </div>
             )}
           </div>
@@ -1042,188 +810,70 @@ const BookingPage = () => {
 
       case 4:
         const availableStaff = getAvailableStaff();
-        
-        // Helper function to get available staff for a specific service and location
-        const getAvailableStaffForService = (serviceId: string) => {
-          return staff.filter(s => 
-            s.services.includes(serviceId) && 
-            s.locations.includes(bookingData.location)
-          );
-        };
-        
         return (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <h3 className="text-lg font-semibold">Select Staff</h3>
-            
-            {/* Main Service Staff Selection */}
-            <div className="space-y-4">
-              <h4 className="text-md font-semibold text-gray-800">Your Service Staff</h4>
-              <div className="space-y-3">
+            <div className="space-y-3">
+              <Card
+                className={`cursor-pointer transition-all ${
+                  bookingData.staff === 'any' ? 'ring-2 bg-blue-50' : 'hover:shadow-md'
+                }`}
+                style={{
+                  borderColor: bookingData.staff === 'any' ? theme.activeColor : undefined,
+                  '--tw-ring-color': theme.activeColor
+                } as React.CSSProperties}
+                onClick={() => setBookingData({ ...bookingData, staff: 'any' })}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                      <User className="w-6 h-6 text-gray-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">Any Available Staff</h4>
+                      <p className="text-sm text-gray-600">First available appointment</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              {availableStaff.map((staffMember) => (
                 <Card
+                  key={staffMember.id}
                   className={`cursor-pointer transition-all ${
-                    bookingData.staff === 'any' ? 'ring-2 bg-blue-50' : 'hover:shadow-md'
+                    bookingData.staff === staffMember.id
+                      ? 'ring-2 bg-blue-50'
+                      : 'hover:shadow-md'
                   }`}
                   style={{
-                    borderColor: bookingData.staff === 'any' ? theme.activeColor : undefined,
+                    borderColor: bookingData.staff === staffMember.id ? theme.activeColor : undefined,
                     '--tw-ring-color': theme.activeColor
                   } as React.CSSProperties}
-                  onClick={() => setBookingData({ ...bookingData, staff: 'any' })}
+                  onClick={() => setBookingData({ ...bookingData, staff: staffMember.id })}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                        <User className="w-6 h-6 text-gray-500" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium">Any Available Staff</h4>
-                        <p className="text-sm text-gray-600">First available appointment</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                {availableStaff.map((staffMember) => (
-                  <Card
-                    key={staffMember.id}
-                    className={`cursor-pointer transition-all ${
-                      bookingData.staff === staffMember.id
-                        ? 'ring-2 bg-blue-50'
-                        : 'hover:shadow-md'
-                    }`}
-                    style={{
-                      borderColor: bookingData.staff === staffMember.id ? theme.activeColor : undefined,
-                      '--tw-ring-color': theme.activeColor
-                    } as React.CSSProperties}
-                    onClick={() => setBookingData({ ...bookingData, staff: staffMember.id })}
-                  >
-                     <CardContent className="p-4">
-                       <div className="flex items-center space-x-3">
-                         <Avatar className="w-12 h-12">
-                           {staffMember.avatar ? (
-                             <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
-                           ) : (
-                             <AvatarFallback 
-                               className="text-white font-semibold"
-                               style={{ backgroundColor: theme.primaryColor }}
-                             >
-                               {staffMember.name.split(' ').map(n => n[0]).join('')}
-                             </AvatarFallback>
-                           )}
-                         </Avatar>
-                         <div>
-                           <h4 className="font-medium">{staffMember.name}</h4>
-                           <p className="text-sm text-gray-600">{staffMember.role}</p>
-                           <p className="text-sm text-gray-500">{staffMember.department}</p>
-                         </div>
+                   <CardContent className="p-4">
+                     <div className="flex items-center space-x-3">
+                       <Avatar className="w-12 h-12">
+                         {staffMember.avatar ? (
+                           <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
+                         ) : (
+                           <AvatarFallback 
+                             className="text-white font-semibold"
+                             style={{ backgroundColor: theme.primaryColor }}
+                           >
+                             {staffMember.name.split(' ').map(n => n[0]).join('')}
+                           </AvatarFallback>
+                         )}
+                       </Avatar>
+                       <div>
+                         <h4 className="font-medium">{staffMember.name}</h4>
+                         <p className="text-sm text-gray-600">{staffMember.role}</p>
+                         <p className="text-sm text-gray-500">{staffMember.department}</p>
                        </div>
-                     </CardContent>
-                  </Card>
-                ))}
-              </div>
+                     </div>
+                   </CardContent>
+                </Card>
+              ))}
             </div>
-
-            {/* Guest Staff Selection */}
-            {bringPeopleEnabled && additionalGuests > 0 && (
-              <div className="space-y-4">
-                <h4 className="text-md font-semibold text-blue-700">Guest Staff Selection</h4>
-                <p className="text-sm text-gray-600">Select staff for each guest's service individually</p>
-                
-                <div className="space-y-6">
-                  {Array.from({ length: additionalGuests }, (_, index) => {
-                    const guestServiceId = guestServices[index];
-                    const guestService = services.find(s => s.id === guestServiceId);
-                    const availableGuestStaff = guestServiceId ? getAvailableStaffForService(guestServiceId) : [];
-                    
-                    if (!guestServiceId || !guestService) {
-                      return (
-                        <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h5 className="text-md font-semibold text-gray-400">Guest {index + 1}</h5>
-                            <span className="text-sm text-gray-400">- No service selected</span>
-                          </div>
-                          <p className="text-sm text-gray-500">Please select a service for this guest first.</p>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div key={index} className="space-y-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
-                        <div className="flex items-center space-x-3">
-                          <h5 className="text-md font-semibold text-blue-700">Guest {index + 1}</h5>
-                          <span className="text-sm text-gray-600">- {guestService.name}</span>
-                        </div>
-                        
-                        <div className="space-y-3 pl-4 border-l-2 border-blue-200">
-                          {/* Any available staff option for guest */}
-                          <Card
-                            className={`cursor-pointer transition-all ${
-                              guestStaffSelections[index] === 'any' ? 'ring-2 bg-white' : 'hover:shadow-md bg-white'
-                            }`}
-                            style={{
-                              borderColor: guestStaffSelections[index] === 'any' ? theme.activeColor : undefined,
-                              '--tw-ring-color': theme.activeColor
-                            } as React.CSSProperties}
-                            onClick={() => setGuestStaffSelections(prev => ({...prev, [index]: 'any'}))}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                  <User className="w-5 h-5 text-gray-500" />
-                                </div>
-                                <div>
-                                  <h6 className="font-medium text-sm">Any Available Staff</h6>
-                                  <p className="text-xs text-gray-600">First available appointment</p>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                          
-                          {/* Specific staff options for guest */}
-                          {availableGuestStaff.map((staffMember) => (
-                            <Card
-                              key={`guest-${index}-${staffMember.id}`}
-                              className={`cursor-pointer transition-all ${
-                                guestStaffSelections[index] === staffMember.id
-                                  ? 'ring-2 bg-white'
-                                  : 'hover:shadow-md bg-white'
-                              }`}
-                              style={{
-                                borderColor: guestStaffSelections[index] === staffMember.id ? theme.activeColor : undefined,
-                                '--tw-ring-color': theme.activeColor
-                              } as React.CSSProperties}
-                              onClick={() => setGuestStaffSelections(prev => ({...prev, [index]: staffMember.id}))}
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex items-center space-x-3">
-                                  <Avatar className="w-10 h-10">
-                                    {staffMember.avatar ? (
-                                      <AvatarImage src={staffMember.avatar} alt={staffMember.name} className="object-cover" />
-                                    ) : (
-                                      <AvatarFallback 
-                                        className="text-white font-semibold text-xs"
-                                        style={{ backgroundColor: theme.primaryColor }}
-                                      >
-                                        {staffMember.name.split(' ').map(n => n[0]).join('')}
-                                      </AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                  <div>
-                                    <h6 className="font-medium text-sm">{staffMember.name}</h6>
-                                    <p className="text-xs text-gray-600">{staffMember.role}</p>
-                                    {staffMember.department && (
-                                      <p className="text-xs text-gray-500">{staffMember.department}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         );
 
@@ -2146,7 +1796,7 @@ const BookingPage = () => {
           </div>
         );
 
-      case 9:
+      case 8:
         const finalService = services.find(s => s.id === bookingData.service);
         const finalLocation = locations.find(l => l.id === bookingData.location);
         const finalStaff = staff.find(s => s.id === bookingData.staff);
