@@ -148,11 +148,12 @@ const BookingPage = () => {
 
     // Apply coupon discount
     if (availableCoupon) {
-      if (availableCoupon.discount.includes('%')) {
-        const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
+      const discountValue = availableCoupon.discount;
+      if (typeof discountValue === 'string' && discountValue.includes('%')) {
+        const percentage = parseFloat(discountValue.replace('%', ''));
         totalDiscount += subtotal * (percentage / 100);
-      } else {
-        totalDiscount += parseFloat(availableCoupon.discount.replace('$', ''));
+      } else if (typeof discountValue === 'string') {
+        totalDiscount += parseFloat(discountValue.replace('$', ''));
       }
     }
 
@@ -196,11 +197,12 @@ const BookingPage = () => {
 
     // Apply coupon discount
     if (availableCoupon) {
-      if (availableCoupon.discount.includes('%')) {
-        const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
+      const discountValue = availableCoupon.discount;
+      if (typeof discountValue === 'string' && discountValue.includes('%')) {
+        const percentage = parseFloat(discountValue.replace('%', ''));
         subtotal = subtotal * (1 - percentage / 100);
-      } else {
-        subtotal -= parseFloat(availableCoupon.discount.replace('$', ''));
+      } else if (typeof discountValue === 'string') {
+        subtotal -= parseFloat(discountValue.replace('$', ''));
       }
     }
 
@@ -578,7 +580,7 @@ const BookingPage = () => {
         staffId: bookingData.staff,
         serviceId: bookingData.service,
         locationId: bookingData.location,
-        date: new Date(bookingData.date),
+        date: bookingData.date ? new Date(bookingData.date) : new Date(),
         time: bookingData.time,
         status: 'Confirmed',
         notes: note,
