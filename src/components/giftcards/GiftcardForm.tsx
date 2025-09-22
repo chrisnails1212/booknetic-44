@@ -30,7 +30,32 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
     usageLimit: 'no-limit',
     oncePer: 'customer',
     isActive: true,
-    expiresAt: ''
+    expiresAt: '',
+    minimumPurchase: '',
+    maxUsagePerTransaction: '',
+    allowCombination: true,
+    dailyLimit: '',
+    monthlyLimit: '',
+    categoryRestrictions: [] as string[],
+    timeRestrictions: {
+      allowedDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+      allowedHours: { start: '00:00', end: '23:59' },
+      blockPeakHours: false
+    },
+    partialUsageRules: {
+      allowPartialUse: true,
+      minimumRemaining: ''
+    },
+    transferRules: {
+      allowTransfer: false,
+      maxTransferAmount: '',
+      transferFee: ''
+    },
+    refundRules: {
+      allowRefund: true,
+      refundFeePercentage: '',
+      refundDeadlineDays: '30'
+    }
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -46,7 +71,32 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
         usageLimit: giftcard.usageLimit || 'no-limit',
         oncePer: giftcard.oncePer || 'customer',
         isActive: giftcard.isActive ?? true,
-        expiresAt: giftcard.expiresAt ? (giftcard.expiresAt instanceof Date ? giftcard.expiresAt.toISOString().split('T')[0] : new Date(giftcard.expiresAt).toISOString().split('T')[0]) : ''
+        expiresAt: giftcard.expiresAt ? (giftcard.expiresAt instanceof Date ? giftcard.expiresAt.toISOString().split('T')[0] : new Date(giftcard.expiresAt).toISOString().split('T')[0]) : '',
+        minimumPurchase: giftcard.minimumPurchase?.toString() || '',
+        maxUsagePerTransaction: giftcard.maxUsagePerTransaction?.toString() || '',
+        allowCombination: giftcard.allowCombination ?? true,
+        dailyLimit: giftcard.dailyLimit?.toString() || '',
+        monthlyLimit: giftcard.monthlyLimit?.toString() || '',
+        categoryRestrictions: giftcard.categoryRestrictions || [],
+        timeRestrictions: giftcard.timeRestrictions || {
+          allowedDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+          allowedHours: { start: '00:00', end: '23:59' },
+          blockPeakHours: false
+        },
+        partialUsageRules: {
+          allowPartialUse: giftcard.partialUsageRules?.allowPartialUse ?? true,
+          minimumRemaining: giftcard.partialUsageRules?.minimumRemaining?.toString() || ''
+        },
+        transferRules: {
+          allowTransfer: giftcard.transferRules?.allowTransfer ?? false,
+          maxTransferAmount: giftcard.transferRules?.maxTransferAmount?.toString() || '',
+          transferFee: giftcard.transferRules?.transferFee?.toString() || ''
+        },
+        refundRules: {
+          allowRefund: giftcard.refundRules?.allowRefund ?? true,
+          refundFeePercentage: giftcard.refundRules?.refundFeePercentage?.toString() || '',
+          refundDeadlineDays: giftcard.refundRules?.refundDeadlineDays?.toString() || '30'
+        }
       });
     } else {
       setFormData({
@@ -58,7 +108,32 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
         usageLimit: 'no-limit',
         oncePer: 'customer',
         isActive: true,
-        expiresAt: ''
+        expiresAt: '',
+        minimumPurchase: '',
+        maxUsagePerTransaction: '',
+        allowCombination: true,
+        dailyLimit: '',
+        monthlyLimit: '',
+        categoryRestrictions: [],
+        timeRestrictions: {
+          allowedDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+          allowedHours: { start: '00:00', end: '23:59' },
+          blockPeakHours: false
+        },
+        partialUsageRules: {
+          allowPartialUse: true,
+          minimumRemaining: ''
+        },
+        transferRules: {
+          allowTransfer: false,
+          maxTransferAmount: '',
+          transferFee: ''
+        },
+        refundRules: {
+          allowRefund: true,
+          refundFeePercentage: '',
+          refundDeadlineDays: '30'
+        }
       });
     }
     setErrors({});
@@ -77,6 +152,35 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
       const balanceValue = parseFloat(formData.balance);
       if (isNaN(balanceValue) || balanceValue <= 0) {
         newErrors.balance = 'Balance must be a positive number';
+      }
+    }
+
+    // Validate numeric fields
+    if (formData.minimumPurchase && formData.minimumPurchase.trim()) {
+      const minPurchase = parseFloat(formData.minimumPurchase);
+      if (isNaN(minPurchase) || minPurchase < 0) {
+        newErrors.minimumPurchase = 'Minimum purchase must be a positive number';
+      }
+    }
+
+    if (formData.maxUsagePerTransaction && formData.maxUsagePerTransaction.trim()) {
+      const maxUsage = parseFloat(formData.maxUsagePerTransaction);
+      if (isNaN(maxUsage) || maxUsage <= 0) {
+        newErrors.maxUsagePerTransaction = 'Maximum usage per transaction must be a positive number';
+      }
+    }
+
+    if (formData.dailyLimit && formData.dailyLimit.trim()) {
+      const dailyLimit = parseFloat(formData.dailyLimit);
+      if (isNaN(dailyLimit) || dailyLimit <= 0) {
+        newErrors.dailyLimit = 'Daily limit must be a positive number';
+      }
+    }
+
+    if (formData.monthlyLimit && formData.monthlyLimit.trim()) {
+      const monthlyLimit = parseFloat(formData.monthlyLimit);
+      if (isNaN(monthlyLimit) || monthlyLimit <= 0) {
+        newErrors.monthlyLimit = 'Monthly limit must be a positive number';
       }
     }
 
@@ -102,7 +206,28 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
         usageLimit: formData.usageLimit,
         oncePer: formData.oncePer,
         isActive: formData.isActive,
-        expiresAt: formData.expiresAt ? new Date(formData.expiresAt) : undefined
+        expiresAt: formData.expiresAt ? new Date(formData.expiresAt) : undefined,
+        minimumPurchase: formData.minimumPurchase ? parseFloat(formData.minimumPurchase) : undefined,
+        maxUsagePerTransaction: formData.maxUsagePerTransaction ? parseFloat(formData.maxUsagePerTransaction) : undefined,
+        allowCombination: formData.allowCombination,
+        dailyLimit: formData.dailyLimit ? parseFloat(formData.dailyLimit) : undefined,
+        monthlyLimit: formData.monthlyLimit ? parseFloat(formData.monthlyLimit) : undefined,
+        categoryRestrictions: formData.categoryRestrictions,
+        timeRestrictions: formData.timeRestrictions,
+        partialUsageRules: {
+          ...formData.partialUsageRules,
+          minimumRemaining: formData.partialUsageRules.minimumRemaining ? parseFloat(formData.partialUsageRules.minimumRemaining) : undefined
+        },
+        transferRules: {
+          ...formData.transferRules,
+          maxTransferAmount: formData.transferRules.maxTransferAmount ? parseFloat(formData.transferRules.maxTransferAmount) : undefined,
+          transferFee: formData.transferRules.transferFee ? parseFloat(formData.transferRules.transferFee) : undefined
+        },
+        refundRules: {
+          ...formData.refundRules,
+          refundFeePercentage: formData.refundRules.refundFeePercentage ? parseFloat(formData.refundRules.refundFeePercentage) : undefined,
+          refundDeadlineDays: formData.refundRules.refundDeadlineDays ? parseInt(formData.refundRules.refundDeadlineDays) : undefined
+        }
       };
 
       if (giftcard) {
@@ -114,13 +239,13 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
       }
 
       onClose();
-    } catch (error) {
-      toast.error('Failed to save gift card');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save gift card');
       console.error('Error saving gift card:', error);
     }
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = (field: string, value: string | boolean | object) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     if (errors[field]) {
@@ -305,6 +430,195 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                     onCheckedChange={(checked) => handleInputChange('isActive', checked)}
                   />
                 </div>
+              </div>
+
+              {/* Enhanced Business Logic Fields */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-sm font-medium">Enhanced Business Rules</h3>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="minimumPurchase">Minimum Purchase Amount ({currency.symbol})</Label>
+                  <Input
+                    id="minimumPurchase"
+                    type="number"
+                    step="0.01"
+                    value={formData.minimumPurchase}
+                    onChange={(e) => handleInputChange('minimumPurchase', e.target.value)}
+                    placeholder="0.00"
+                    className={errors.minimumPurchase ? 'border-red-500' : ''}
+                  />
+                  {errors.minimumPurchase && (
+                    <p className="text-sm text-red-600">{errors.minimumPurchase}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="maxUsagePerTransaction">Max Usage Per Transaction ({currency.symbol})</Label>
+                  <Input
+                    id="maxUsagePerTransaction"
+                    type="number"
+                    step="0.01"
+                    value={formData.maxUsagePerTransaction}
+                    onChange={(e) => handleInputChange('maxUsagePerTransaction', e.target.value)}
+                    placeholder="0.00"
+                    className={errors.maxUsagePerTransaction ? 'border-red-500' : ''}
+                  />
+                  {errors.maxUsagePerTransaction && (
+                    <p className="text-sm text-red-600">{errors.maxUsagePerTransaction}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="allowCombination">Allow Combination with Other Gift Cards</Label>
+                  <Switch
+                    id="allowCombination"
+                    checked={formData.allowCombination}
+                    onCheckedChange={(checked) => handleInputChange('allowCombination', checked)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dailyLimit">Daily Spending Limit ({currency.symbol})</Label>
+                  <Input
+                    id="dailyLimit"
+                    type="number"
+                    step="0.01"
+                    value={formData.dailyLimit}
+                    onChange={(e) => handleInputChange('dailyLimit', e.target.value)}
+                    placeholder="0.00"
+                    className={errors.dailyLimit ? 'border-red-500' : ''}
+                  />
+                  {errors.dailyLimit && (
+                    <p className="text-sm text-red-600">{errors.dailyLimit}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="monthlyLimit">Monthly Spending Limit ({currency.symbol})</Label>
+                  <Input
+                    id="monthlyLimit"
+                    type="number"
+                    step="0.01"
+                    value={formData.monthlyLimit}
+                    onChange={(e) => handleInputChange('monthlyLimit', e.target.value)}
+                    placeholder="0.00"
+                    className={errors.monthlyLimit ? 'border-red-500' : ''}
+                  />
+                  {errors.monthlyLimit && (
+                    <p className="text-sm text-red-600">{errors.monthlyLimit}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Partial Usage Rules */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-sm font-medium">Partial Usage Rules</h3>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="allowPartialUse">Allow Partial Use</Label>
+                  <Switch
+                    id="allowPartialUse"
+                    checked={formData.partialUsageRules.allowPartialUse}
+                    onCheckedChange={(checked) => handleInputChange('partialUsageRules', { ...formData.partialUsageRules, allowPartialUse: checked })}
+                  />
+                </div>
+
+                {formData.partialUsageRules.allowPartialUse && (
+                  <div className="space-y-2">
+                    <Label htmlFor="minimumRemaining">Minimum Remaining Balance ({currency.symbol})</Label>
+                    <Input
+                      id="minimumRemaining"
+                      type="number"
+                      step="0.01"
+                      value={formData.partialUsageRules.minimumRemaining}
+                      onChange={(e) => handleInputChange('partialUsageRules', { ...formData.partialUsageRules, minimumRemaining: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Transfer Rules */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-sm font-medium">Transfer Rules</h3>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="allowTransfer">Allow Balance Transfer</Label>
+                  <Switch
+                    id="allowTransfer"
+                    checked={formData.transferRules.allowTransfer}
+                    onCheckedChange={(checked) => handleInputChange('transferRules', { ...formData.transferRules, allowTransfer: checked })}
+                  />
+                </div>
+
+                {formData.transferRules.allowTransfer && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="maxTransferAmount">Max Transfer Amount ({currency.symbol})</Label>
+                      <Input
+                        id="maxTransferAmount"
+                        type="number"
+                        step="0.01"
+                        value={formData.transferRules.maxTransferAmount}
+                        onChange={(e) => handleInputChange('transferRules', { ...formData.transferRules, maxTransferAmount: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="transferFee">Transfer Fee ({currency.symbol})</Label>
+                      <Input
+                        id="transferFee"
+                        type="number"
+                        step="0.01"
+                        value={formData.transferRules.transferFee}
+                        onChange={(e) => handleInputChange('transferRules', { ...formData.transferRules, transferFee: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Refund Rules */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-sm font-medium">Refund Rules</h3>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="allowRefund">Allow Refunds</Label>
+                  <Switch
+                    id="allowRefund"
+                    checked={formData.refundRules.allowRefund}
+                    onCheckedChange={(checked) => handleInputChange('refundRules', { ...formData.refundRules, allowRefund: checked })}
+                  />
+                </div>
+
+                {formData.refundRules.allowRefund && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="refundFeePercentage">Refund Fee (%)</Label>
+                      <Input
+                        id="refundFeePercentage"
+                        type="number"
+                        step="0.01"
+                        value={formData.refundRules.refundFeePercentage}
+                        onChange={(e) => handleInputChange('refundRules', { ...formData.refundRules, refundFeePercentage: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="refundDeadlineDays">Refund Deadline (Days)</Label>
+                      <Input
+                        id="refundDeadlineDays"
+                        type="number"
+                        value={formData.refundRules.refundDeadlineDays}
+                        onChange={(e) => handleInputChange('refundRules', { ...formData.refundRules, refundDeadlineDays: e.target.value })}
+                        placeholder="30"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </form>
           </div>

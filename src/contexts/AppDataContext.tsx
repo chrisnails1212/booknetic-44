@@ -81,6 +81,18 @@ export interface Coupon {
   createdAt: Date;
 }
 
+export interface GiftcardTransaction {
+  id: string;
+  type: 'purchase' | 'recharge' | 'transfer_in' | 'transfer_out' | 'refund' | 'void';
+  amount: number;
+  appointmentId?: string;
+  fromGiftcardId?: string;
+  toGiftcardId?: string;
+  reason?: string;
+  timestamp: Date;
+  customerId?: string;
+}
+
 export interface Giftcard {
   id: string;
   code: string;
@@ -89,6 +101,7 @@ export interface Giftcard {
   spent: number;
   leftover: number;
   usageHistory: string[];
+  transactions: GiftcardTransaction[];
   locationFilter: string;
   servicesFilter: string;
   staffFilter: string;
@@ -97,6 +110,35 @@ export interface Giftcard {
   isActive: boolean;
   createdAt: Date;
   expiresAt?: Date;
+  // Enhanced business logic fields
+  minimumPurchase?: number;
+  maxUsagePerTransaction?: number;
+  allowCombination: boolean;
+  dailyLimit?: number;
+  monthlyLimit?: number;
+  dailyUsage: number;
+  monthlyUsage: number;
+  lastUsageDate?: Date;
+  categoryRestrictions: string[];
+  timeRestrictions: {
+    allowedDays: string[];
+    allowedHours: { start: string; end: string };
+    blockPeakHours: boolean;
+  };
+  partialUsageRules: {
+    allowPartialUse: boolean;
+    minimumRemaining?: number;
+  };
+  transferRules: {
+    allowTransfer: boolean;
+    maxTransferAmount?: number;
+    transferFee?: number;
+  };
+  refundRules: {
+    allowRefund: boolean;
+    refundFeePercentage?: number;
+    refundDeadlineDays?: number;
+  };
 }
 
 export interface Tax {
@@ -171,9 +213,15 @@ interface AppDataContextType {
   updateCoupon: (id: string, coupon: Partial<Coupon>) => void;
   deleteCoupon: (id: string) => void;
   
-  addGiftcard: (giftcard: Omit<Giftcard, 'id' | 'spent' | 'leftover' | 'usageHistory' | 'createdAt'>) => string;
+  addGiftcard: (giftcard: Omit<Giftcard, 'id' | 'spent' | 'leftover' | 'usageHistory' | 'transactions' | 'createdAt' | 'dailyUsage' | 'monthlyUsage'>) => string;
   updateGiftcard: (id: string, giftcard: Partial<Giftcard>) => void;
   deleteGiftcard: (id: string) => void;
+  rechargeGiftcard: (id: string, amount: number, reason?: string) => void;
+  transferGiftcardBalance: (fromId: string, toId: string, amount: number) => void;
+  refundGiftcard: (id: string, amount: number, reason?: string) => void;
+  checkGiftcardCodeExists: (code: string, excludeId?: string) => boolean;
+  getGiftcardStatus: (giftcard: Giftcard) => 'active' | 'inactive' | 'expired' | 'used' | 'limit-reached';
+  updateExpiredGiftcards: () => void;
   
   addTax: (tax: Omit<Tax, 'id' | 'createdAt'>) => string;
   updateTax: (id: string, tax: Partial<Tax>) => void;
@@ -268,11 +316,37 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     const saved = localStorage.getItem('app-giftcards');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Convert date strings back to Date objects
+      // Convert date strings back to Date objects and handle new fields
       return parsed.map((giftcard: any) => ({
         ...giftcard,
         createdAt: new Date(giftcard.createdAt),
-        expiresAt: giftcard.expiresAt ? new Date(giftcard.expiresAt) : undefined
+        expiresAt: giftcard.expiresAt ? new Date(giftcard.expiresAt) : undefined,
+        lastUsageDate: giftcard.lastUsageDate ? new Date(giftcard.lastUsageDate) : undefined,
+        transactions: giftcard.transactions?.map((t: any) => ({
+          ...t,
+          timestamp: new Date(t.timestamp)
+        })) || [],
+        // Set defaults for new fields
+        allowCombination: giftcard.allowCombination ?? true,
+        dailyUsage: giftcard.dailyUsage || 0,
+        monthlyUsage: giftcard.monthlyUsage || 0,
+        categoryRestrictions: giftcard.categoryRestrictions || [],
+        timeRestrictions: giftcard.timeRestrictions || {
+          allowedDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+          allowedHours: { start: '00:00', end: '23:59' },
+          blockPeakHours: false
+        },
+        partialUsageRules: giftcard.partialUsageRules || {
+          allowPartialUse: true
+        },
+        transferRules: giftcard.transferRules || {
+          allowTransfer: false
+        },
+        refundRules: giftcard.refundRules || {
+          allowRefund: true,
+          refundFeePercentage: 0,
+          refundDeadlineDays: 30
+        }
       }));
     }
     return [];
@@ -553,7 +627,16 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Giftcard actions
-  const addGiftcard = (giftcard: Omit<Giftcard, 'id' | 'spent' | 'leftover' | 'usageHistory' | 'createdAt'>) => {
+  const checkGiftcardCodeExists = (code: string, excludeId?: string) => {
+    return giftcards.some(g => g.code.toUpperCase() === code.toUpperCase() && g.id !== excludeId);
+  };
+
+  const addGiftcard = (giftcard: Omit<Giftcard, 'id' | 'spent' | 'leftover' | 'usageHistory' | 'transactions' | 'createdAt' | 'dailyUsage' | 'monthlyUsage'>) => {
+    // Check for code uniqueness
+    if (checkGiftcardCodeExists(giftcard.code)) {
+      throw new Error('Gift card code already exists');
+    }
+
     const id = generateId();
     const newGiftcard: Giftcard = {
       ...giftcard,
@@ -561,7 +644,34 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       spent: 0,
       leftover: giftcard.balance,
       usageHistory: [],
-      createdAt: new Date()
+      transactions: [{
+        id: generateId(),
+        type: 'purchase',
+        amount: giftcard.balance,
+        timestamp: new Date()
+      }],
+      dailyUsage: 0,
+      monthlyUsage: 0,
+      createdAt: new Date(),
+      // Set defaults for new fields if not provided
+      allowCombination: giftcard.allowCombination ?? true,
+      categoryRestrictions: giftcard.categoryRestrictions || [],
+      timeRestrictions: giftcard.timeRestrictions || {
+        allowedDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+        allowedHours: { start: '00:00', end: '23:59' },
+        blockPeakHours: false
+      },
+      partialUsageRules: giftcard.partialUsageRules || {
+        allowPartialUse: true
+      },
+      transferRules: giftcard.transferRules || {
+        allowTransfer: false
+      },
+      refundRules: giftcard.refundRules || {
+        allowRefund: true,
+        refundFeePercentage: 0,
+        refundDeadlineDays: 30
+      }
     };
     setGiftcards(prev => [...prev, newGiftcard]);
     return id;
@@ -570,6 +680,11 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   const updateGiftcard = (id: string, giftcard: Partial<Giftcard>) => {
     setGiftcards(prev => prev.map(g => {
       if (g.id === id) {
+        // Check for code uniqueness if code is being changed
+        if (giftcard.code && checkGiftcardCodeExists(giftcard.code, id)) {
+          throw new Error('Gift card code already exists');
+        }
+        
         const updated = { ...g, ...giftcard };
         // Recalculate leftover when balance changes
         if (giftcard.balance !== undefined) {
@@ -583,6 +698,144 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteGiftcard = (id: string) => {
     setGiftcards(prev => prev.filter(g => g.id !== id));
+  };
+
+  const rechargeGiftcard = (id: string, amount: number, reason?: string) => {
+    setGiftcards(prev => prev.map(g => {
+      if (g.id === id) {
+        const transaction: GiftcardTransaction = {
+          id: generateId(),
+          type: 'recharge',
+          amount,
+          reason,
+          timestamp: new Date()
+        };
+        
+        return {
+          ...g,
+          balance: g.balance + amount,
+          leftover: g.leftover + amount,
+          transactions: [...g.transactions, transaction]
+        };
+      }
+      return g;
+    }));
+  };
+
+  const transferGiftcardBalance = (fromId: string, toId: string, amount: number) => {
+    setGiftcards(prev => prev.map(g => {
+      if (g.id === fromId) {
+        if (g.balance < amount) {
+          throw new Error('Insufficient balance for transfer');
+        }
+        if (!g.transferRules.allowTransfer) {
+          throw new Error('Transfers not allowed for this gift card');
+        }
+        if (g.transferRules.maxTransferAmount && amount > g.transferRules.maxTransferAmount) {
+          throw new Error(`Transfer amount exceeds maximum of ${g.transferRules.maxTransferAmount}`);
+        }
+        
+        const fee = g.transferRules.transferFee || 0;
+        const totalDeduction = amount + fee;
+        
+        const transaction: GiftcardTransaction = {
+          id: generateId(),
+          type: 'transfer_out',
+          amount: totalDeduction,
+          toGiftcardId: toId,
+          timestamp: new Date()
+        };
+        
+        return {
+          ...g,
+          balance: g.balance - totalDeduction,
+          leftover: g.leftover - totalDeduction,
+          spent: g.spent + totalDeduction,
+          transactions: [...g.transactions, transaction]
+        };
+      }
+      
+      if (g.id === toId) {
+        const transaction: GiftcardTransaction = {
+          id: generateId(),
+          type: 'transfer_in',
+          amount,
+          fromGiftcardId: fromId,
+          timestamp: new Date()
+        };
+        
+        return {
+          ...g,
+          balance: g.balance + amount,
+          leftover: g.leftover + amount,
+          transactions: [...g.transactions, transaction]
+        };
+      }
+      
+      return g;
+    }));
+  };
+
+  const refundGiftcard = (id: string, amount: number, reason?: string) => {
+    setGiftcards(prev => prev.map(g => {
+      if (g.id === id) {
+        if (!g.refundRules.allowRefund) {
+          throw new Error('Refunds not allowed for this gift card');
+        }
+        
+        // Check refund deadline
+        if (g.refundRules.refundDeadlineDays) {
+          const deadlineDate = new Date(g.createdAt);
+          deadlineDate.setDate(deadlineDate.getDate() + g.refundRules.refundDeadlineDays);
+          if (new Date() > deadlineDate) {
+            throw new Error('Refund deadline has passed');
+          }
+        }
+        
+        const feePercentage = g.refundRules.refundFeePercentage || 0;
+        const fee = (amount * feePercentage) / 100;
+        const refundAmount = amount - fee;
+        
+        const transaction: GiftcardTransaction = {
+          id: generateId(),
+          type: 'refund',
+          amount: refundAmount,
+          reason,
+          timestamp: new Date()
+        };
+        
+        return {
+          ...g,
+          balance: Math.max(0, g.balance - amount),
+          leftover: Math.max(0, g.leftover - amount),
+          spent: g.spent + amount,
+          transactions: [...g.transactions, transaction]
+        };
+      }
+      return g;
+    }));
+  };
+
+  const getGiftcardStatus = (giftcard: Giftcard) => {
+    if (!giftcard.isActive) return 'inactive';
+    if (giftcard.expiresAt && new Date(giftcard.expiresAt) < new Date()) return 'expired';
+    if (giftcard.usageLimit !== 'no-limit') {
+      const usageLimit = parseInt(giftcard.usageLimit);
+      const timesUsed = giftcard.usageHistory?.length || 0;
+      if (timesUsed >= usageLimit) return 'limit-reached';
+    }
+    if ((giftcard.leftover || giftcard.balance) <= 0) return 'used';
+    return 'active';
+  };
+
+  const updateExpiredGiftcards = () => {
+    const now = new Date();
+    setGiftcards(prev => prev.map(g => {
+      if (g.expiresAt && new Date(g.expiresAt) < now && g.isActive) {
+        return { ...g, isActive: false };
+      }
+      return g;
+    }));
   };
 
   // Tax actions
@@ -1026,6 +1279,12 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     addGiftcard,
     updateGiftcard,
     deleteGiftcard,
+    rechargeGiftcard,
+    transferGiftcardBalance,
+    refundGiftcard,
+    checkGiftcardCodeExists,
+    getGiftcardStatus,
+    updateExpiredGiftcards,
     
     addTax,
     updateTax,

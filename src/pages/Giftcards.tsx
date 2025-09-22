@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,14 +6,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Edit, Trash2, Copy, Download } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Copy, Download, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import { GiftcardForm } from '@/components/giftcards/GiftcardForm';
 import { useAppData, Giftcard } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { toast } from 'sonner';
 
 const Giftcards = () => {
-  const { giftcards, deleteGiftcard, appointments, getCustomerById } = useAppData();
+  const { giftcards, deleteGiftcard, rechargeGiftcard, transferGiftcardBalance, getGiftcardStatus, updateExpiredGiftcards } = useAppData();
   const { formatPrice } = useCurrency();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedGiftcard, setSelectedGiftcard] = useState<Giftcard | null>(null);
@@ -56,32 +56,28 @@ const Giftcards = () => {
     return new Date(expiresAt) < new Date();
   };
 
-  // Get usage count for display
-  const getUsageCount = (giftcard: Giftcard) => {
-    return giftcard.usageHistory?.length || 0;
-  };
+  // Memoized calculations for performance
+  const giftcardStatusMap = useMemo(() => {
+    const statusMap = new Map();
+    giftcards.forEach(giftcard => {
+      statusMap.set(giftcard.id, getGiftcardStatus(giftcard));
+    });
+    return statusMap;
+  }, [giftcards, getGiftcardStatus]);
 
-  // Check if usage limit is reached
-  const isUsageLimitReached = (giftcard: Giftcard) => {
-    if (giftcard.usageLimit === 'no-limit') return false;
-    const usageLimit = parseInt(giftcard.usageLimit);
-    const timesUsed = getUsageCount(giftcard);
-    return timesUsed >= usageLimit;
-  };
+  const getUsageCount = useMemo(() => {
+    return (giftcard: Giftcard) => giftcard.usageHistory?.length || 0;
+  }, []);
 
-  // Get status for filtering
-  const getGiftcardStatus = (giftcard: Giftcard) => {
-    if (!giftcard.isActive) return 'inactive';
-    if (isExpired(giftcard.expiresAt)) return 'expired';
-    if (isUsageLimitReached(giftcard)) return 'limit-reached';
-    if ((giftcard.leftover || giftcard.balance) <= 0) return 'used';
-    return 'active';
+  // Get status for filtering - using memoized version
+  const getStatus = (giftcard: Giftcard) => {
+    return giftcardStatusMap.get(giftcard.id) || 'active';
   };
 
   // Filter giftcards
   const filteredGiftcards = giftcards.filter(giftcard => {
     const matchesSearch = giftcard.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const status = getGiftcardStatus(giftcard);
+    const status = getStatus(giftcard);
     const matchesStatus = statusFilter === 'all' || status === statusFilter;
     
     return matchesSearch && matchesStatus;
@@ -292,15 +288,15 @@ const Giftcards = () => {
                     </TableCell>
                     <TableCell>
                       <Badge variant={
-                        !giftcard.isActive ? "destructive" :
-                        isExpired(giftcard.expiresAt) ? "secondary" :
-                        isUsageLimitReached(giftcard) ? "outline" :
-                        (giftcard.leftover || giftcard.balance) <= 0 ? "outline" : "default"
+                        getStatus(giftcard) === 'active' ? "default" :
+                        getStatus(giftcard) === 'expired' ? "secondary" :
+                        getStatus(giftcard) === 'limit-reached' ? "outline" :
+                        getStatus(giftcard) === 'used' ? "outline" : "destructive"
                       }>
-                        {!giftcard.isActive ? "Inactive" :
-                        isExpired(giftcard.expiresAt) ? "Expired" :
-                        isUsageLimitReached(giftcard) ? "Limit Reached" :
-                        (giftcard.leftover || giftcard.balance) <= 0 ? "Used" : "Active"}
+                        {getStatus(giftcard) === 'active' ? "Active" :
+                         getStatus(giftcard) === 'expired' ? "Expired" :
+                         getStatus(giftcard) === 'limit-reached' ? "Limit Reached" :
+                         getStatus(giftcard) === 'used' ? "Used" : "Inactive"}
                       </Badge>
                     </TableCell>
                     <TableCell>{formatDate(giftcard.expiresAt)}</TableCell>
