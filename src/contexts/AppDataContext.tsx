@@ -73,8 +73,12 @@ export interface Coupon {
   servicesFilter?: string;
   staffFilter?: string;
   timesUsed: number;
-  status: 'Active' | 'Inactive';
+  status: 'Active' | 'Inactive' | 'Expired';
   usageHistory: string[];
+  minimumPurchase?: number;
+  maximumDiscount?: number;
+  allowCombination: boolean;
+  createdAt: Date;
 }
 
 export interface Giftcard {
@@ -163,7 +167,7 @@ interface AppDataContextType {
   updateLocation: (id: string, location: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
   
-  addCoupon: (coupon: Omit<Coupon, 'id' | 'timesUsed' | 'usageHistory'>) => string;
+  addCoupon: (coupon: Omit<Coupon, 'id' | 'timesUsed' | 'usageHistory' | 'createdAt'>) => string;
   updateCoupon: (id: string, coupon: Partial<Coupon>) => void;
   deleteCoupon: (id: string) => void;
   
@@ -517,13 +521,14 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Coupon actions
-  const addCoupon = (coupon: Omit<Coupon, 'id' | 'timesUsed' | 'usageHistory'>) => {
+  const addCoupon = (coupon: Omit<Coupon, 'id' | 'timesUsed' | 'usageHistory' | 'createdAt'>) => {
     const id = generateId();
     const newCoupon: Coupon = {
       ...coupon,
       id,
       timesUsed: 0,
-      usageHistory: []
+      usageHistory: [],
+      createdAt: new Date()
     };
     setCoupons(prev => [...prev, newCoupon]);
     return id;

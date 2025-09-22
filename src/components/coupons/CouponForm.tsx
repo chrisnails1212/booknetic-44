@@ -6,12 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, X, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppData, Coupon } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
 interface CouponFormProps {
@@ -25,7 +26,7 @@ export const CouponForm: React.FC<CouponFormProps> = ({
   onClose,
   coupon
 }) => {
-  const { addCoupon, updateCoupon, services, staff } = useAppData();
+  const { addCoupon, updateCoupon, services, staff, coupons } = useAppData();
   const { currency } = useCurrency();
   
   const [formData, setFormData] = useState<{
@@ -41,6 +42,9 @@ export const CouponForm: React.FC<CouponFormProps> = ({
     servicesFilter: string;
     staffFilter: string;
     status: 'Active' | 'Inactive';
+    minimumPurchase: string;
+    maximumDiscount: string;
+    allowCombination: boolean;
   }>({
     code: '',
     discount: '',
@@ -53,7 +57,10 @@ export const CouponForm: React.FC<CouponFormProps> = ({
     oncePer: '',
     servicesFilter: 'all-services',
     staffFilter: 'all-staff',
-    status: 'Active'
+    status: 'Active',
+    minimumPurchase: '',
+    maximumDiscount: '',
+    allowCombination: true
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -77,7 +84,10 @@ export const CouponForm: React.FC<CouponFormProps> = ({
         oncePer: coupon.oncePer || '',
         servicesFilter: coupon.servicesFilter || 'all-services',
         staffFilter: coupon.staffFilter || 'all-staff',
-        status: coupon.status || 'Active'
+        status: coupon.status === 'Expired' ? 'Inactive' : coupon.status || 'Active',
+        minimumPurchase: coupon.minimumPurchase?.toString() || '',
+        maximumDiscount: coupon.maximumDiscount?.toString() || '',
+        allowCombination: coupon.allowCombination ?? true
       });
     } else {
       setFormData({
@@ -92,19 +102,33 @@ export const CouponForm: React.FC<CouponFormProps> = ({
         oncePer: '',
         servicesFilter: 'all-services',
         staffFilter: 'all-staff',
-        status: 'Active'
+        status: 'Active',
+        minimumPurchase: '',
+        maximumDiscount: '',
+        allowCombination: true
       });
     }
     setErrors({});
-  }, [coupon, isOpen]);
+  }, [coupon, isOpen, currency.symbol]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    // Coupon code validation
     if (!formData.code.trim()) {
       newErrors.code = 'Coupon code is required';
+    } else {
+      // Check for uniqueness (exclude current coupon if editing)
+      const existingCoupon = coupons.find(c => 
+        c.code.toUpperCase() === formData.code.trim().toUpperCase() && 
+        c.id !== coupon?.id
+      );
+      if (existingCoupon) {
+        newErrors.code = 'This coupon code already exists';
+      }
     }
 
+    // Discount validation
     if (!formData.discount.trim()) {
       newErrors.discount = 'Discount amount is required';
     } else {
@@ -114,6 +138,39 @@ export const CouponForm: React.FC<CouponFormProps> = ({
       }
       if (formData.discountType === '%' && discountValue > 100) {
         newErrors.discount = 'Percentage discount cannot exceed 100%';
+      }
+    }
+
+    // Date validation
+    if (formData.appliesDateFrom === 'Custom' && formData.appliesDateTo === 'Custom') {
+      if (formData.customDateFrom && formData.customDateTo) {
+        if (formData.customDateFrom >= formData.customDateTo) {
+          newErrors.customDateTo = 'End date must be after start date';
+        }
+      }
+    }
+
+    // Minimum purchase validation
+    if (formData.minimumPurchase && formData.minimumPurchase.trim()) {
+      const minPurchase = parseFloat(formData.minimumPurchase);
+      if (isNaN(minPurchase) || minPurchase < 0) {
+        newErrors.minimumPurchase = 'Minimum purchase must be a valid number';
+      }
+    }
+
+    // Maximum discount validation
+    if (formData.maximumDiscount && formData.maximumDiscount.trim()) {
+      const maxDiscount = parseFloat(formData.maximumDiscount);
+      if (isNaN(maxDiscount) || maxDiscount <= 0) {
+        newErrors.maximumDiscount = 'Maximum discount must be a positive number';
+      }
+    }
+
+    // Usage limit validation
+    if (formData.usageLimit !== 'No limit') {
+      const usageLimit = parseInt(formData.usageLimit);
+      if (isNaN(usageLimit) || usageLimit <= 0) {
+        newErrors.usageLimit = 'Usage limit must be a positive number';
       }
     }
 
@@ -142,7 +199,10 @@ export const CouponForm: React.FC<CouponFormProps> = ({
         oncePer: formData.oncePer || undefined,
         servicesFilter: formData.servicesFilter,
         staffFilter: formData.staffFilter,
-        status: formData.status
+        status: formData.status,
+        minimumPurchase: formData.minimumPurchase ? parseFloat(formData.minimumPurchase) : undefined,
+        maximumDiscount: formData.maximumDiscount ? parseFloat(formData.maximumDiscount) : undefined,
+        allowCombination: formData.allowCombination
       };
 
       if (coupon) {
@@ -160,7 +220,7 @@ export const CouponForm: React.FC<CouponFormProps> = ({
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -199,7 +259,7 @@ export const CouponForm: React.FC<CouponFormProps> = ({
                   id="code"
                   value={formData.code}
                   onChange={(e) => handleInputChange('code', e.target.value)}
-                  placeholder="Enter coupon code"
+                  placeholder="Enter unique coupon code"
                   className={errors.code ? 'border-red-500' : ''}
                   required
                 />
@@ -233,6 +293,49 @@ export const CouponForm: React.FC<CouponFormProps> = ({
                 {errors.discount && (
                   <p className="text-sm text-red-600">{errors.discount}</p>
                 )}
+              </div>
+            </div>
+
+            {/* Minimum Purchase and Maximum Discount */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minimumPurchase">
+                  Minimum Purchase ({currency.symbol})
+                  <Info className="inline w-3 h-3 ml-1 text-gray-400" />
+                </Label>
+                <Input
+                  id="minimumPurchase"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.minimumPurchase}
+                  onChange={(e) => handleInputChange('minimumPurchase', e.target.value)}
+                  placeholder="0.00"
+                  className={errors.minimumPurchase ? 'border-red-500' : ''}
+                />
+                {errors.minimumPurchase && (
+                  <p className="text-sm text-red-600">{errors.minimumPurchase}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maximumDiscount">
+                  Maximum Discount ({currency.symbol})
+                  <Info className="inline w-3 h-3 ml-1 text-gray-400" />
+                </Label>
+                <Input
+                  id="maximumDiscount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.maximumDiscount}
+                  onChange={(e) => handleInputChange('maximumDiscount', e.target.value)}
+                  placeholder="No limit"
+                  className={errors.maximumDiscount ? 'border-red-500' : ''}
+                />
+                {errors.maximumDiscount && (
+                  <p className="text-sm text-red-600">{errors.maximumDiscount}</p>
+                )}
+                <p className="text-xs text-gray-500">Leave empty for no limit</p>
               </div>
             </div>
 
@@ -293,7 +396,8 @@ export const CouponForm: React.FC<CouponFormProps> = ({
                         variant="outline"
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !formData.customDateTo && "text-muted-foreground"
+                          !formData.customDateTo && "text-muted-foreground",
+                          errors.customDateTo && "border-red-500"
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -310,6 +414,9 @@ export const CouponForm: React.FC<CouponFormProps> = ({
                       />
                     </PopoverContent>
                   </Popover>
+                )}
+                {errors.customDateTo && (
+                  <p className="text-sm text-red-600">{errors.customDateTo}</p>
                 )}
               </div>
             </div>
@@ -332,6 +439,9 @@ export const CouponForm: React.FC<CouponFormProps> = ({
                     <SelectItem value="100">100</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.usageLimit && (
+                  <p className="text-sm text-red-600">{errors.usageLimit}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="oncePer">
@@ -385,6 +495,21 @@ export const CouponForm: React.FC<CouponFormProps> = ({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Combination Rules */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="space-y-1">
+                <Label htmlFor="allowCombination">Allow combination with other offers</Label>
+                <p className="text-sm text-gray-500">
+                  When disabled, this coupon cannot be used with other coupons or promotions
+                </p>
+              </div>
+              <Checkbox
+                id="allowCombination"
+                checked={formData.allowCombination}
+                onCheckedChange={(checked) => handleInputChange('allowCombination', checked as boolean)}
+              />
             </div>
 
             {/* Status */}

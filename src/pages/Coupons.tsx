@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Plus, Edit, Trash2, Copy, Download } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Copy, Download, AlertTriangle } from 'lucide-react';
 import { CouponForm } from '@/components/coupons/CouponForm';
 import { useAppData } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { toast } from 'sonner';
 
 const Coupons = () => {
-  const { coupons, deleteCoupon, appointments, getCustomerById } = useAppData();
+  const { coupons, deleteCoupon, updateCoupon, appointments, getCustomerById } = useAppData();
   const { formatPrice, currency } = useCurrency();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
@@ -21,6 +21,29 @@ const Coupons = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+
+  // Auto-expire coupons based on custom dates
+  useEffect(() => {
+    const now = new Date();
+    const expiredCoupons = coupons.filter(coupon => {
+      if (coupon.status === 'Active' && coupon.appliesDateTo === 'Custom' && coupon.customDateTo) {
+        return new Date(coupon.customDateTo) < now;
+      }
+      return false;
+    });
+
+    if (expiredCoupons.length > 0) {
+      expiredCoupons.forEach(coupon => {
+        updateCoupon(coupon.id, { status: 'Expired' });
+      });
+      
+      if (expiredCoupons.length === 1) {
+        toast.info(`Coupon "${expiredCoupons[0].code}" has expired and been automatically deactivated.`);
+      } else {
+        toast.info(`${expiredCoupons.length} coupons have expired and been automatically deactivated.`);
+      }
+    }
+  }, [coupons, updateCoupon]);
 
   const handleAddCoupon = () => {
     setSelectedCoupon(null);
@@ -45,25 +68,42 @@ const Coupons = () => {
     setSelectedCoupon(null);
   };
 
-  // Calculate coupon usage from appointments
-  const getCouponUsageData = (couponId: string) => {
-    const couponAppointments = appointments.filter(apt => 
-      apt.appliedCoupons?.includes(couponId)
-    );
+  // Memoized coupon usage calculation for performance
+  const couponUsageData = useMemo(() => {
+    const usageMap = new Map();
     
-    const usageHistory = couponAppointments.map(apt => {
-      const customer = getCustomerById(apt.customerId);
-      return {
-        customerName: customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer',
-        date: new Date(apt.date).toLocaleDateString(),
-        appointmentId: apt.id
-      };
+    coupons.forEach(coupon => {
+      if (coupon.usageHistory && coupon.usageHistory.length > 0) {
+        const usageHistory = coupon.usageHistory.map(appointmentId => {
+          const appointment = appointments.find(apt => apt.id === appointmentId);
+          if (appointment) {
+            const customer = getCustomerById(appointment.customerId);
+            return {
+              customerName: customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer',
+              date: new Date(appointment.date).toLocaleDateString(),
+              appointmentId: appointment.id
+            };
+          }
+          return null;
+        }).filter(Boolean);
+
+        usageMap.set(coupon.id, {
+          timesUsed: coupon.timesUsed || coupon.usageHistory.length,
+          usageHistory
+        });
+      } else {
+        usageMap.set(coupon.id, {
+          timesUsed: coupon.timesUsed || 0,
+          usageHistory: []
+        });
+      }
     });
 
-    return {
-      timesUsed: couponAppointments.length,
-      usageHistory
-    };
+    return usageMap;
+  }, [coupons, appointments, getCustomerById]);
+
+  const getCouponUsageData = (couponId: string) => {
+    return couponUsageData.get(couponId) || { timesUsed: 0, usageHistory: [] };
   };
 
   // Format discount to use current currency
@@ -81,6 +121,23 @@ const Coupons = () => {
     }
   };
 
+  // Check if usage limit is reached
+  const isUsageLimitReached = (coupon: any) => {
+    if (coupon.usageLimit === 'No limit') return false;
+    const usageLimit = parseInt(coupon.usageLimit);
+    const timesUsed = getCouponUsageData(coupon.id).timesUsed;
+    return !isNaN(usageLimit) && timesUsed >= usageLimit;
+  };
+
+  // Check if coupon is expired
+  const isCouponExpired = (coupon: any) => {
+    if (coupon.status === 'Expired') return true;
+    if (coupon.appliesDateTo === 'Custom' && coupon.customDateTo) {
+      return new Date(coupon.customDateTo) < new Date();
+    }
+    return false;
+  };
+
   // Filter coupons
   const filteredCoupons = coupons.filter(coupon => {
     const matchesSearch = 
@@ -92,13 +149,16 @@ const Coupons = () => {
     
     if (statusFilter === 'active') {
       matchesStatus = coupon.status === 'Active' && 
-        (coupon.usageLimit === 'No limit' || usageData.timesUsed < parseInt(coupon.usageLimit));
+        !isCouponExpired(coupon) && 
+        !isUsageLimitReached(coupon);
     } else if (statusFilter === 'inactive') {
       matchesStatus = coupon.status === 'Inactive';
+    } else if (statusFilter === 'expired') {
+      matchesStatus = coupon.status === 'Expired' || isCouponExpired(coupon);
     } else if (statusFilter === 'limit-reached') {
       matchesStatus = coupon.status === 'Active' && 
-        coupon.usageLimit !== 'No limit' && 
-        usageData.timesUsed >= parseInt(coupon.usageLimit);
+        !isCouponExpired(coupon) && 
+        isUsageLimitReached(coupon);
     }
     
     return matchesSearch && matchesStatus;
@@ -144,19 +204,21 @@ const Coupons = () => {
   };
 
   const handleExportToCSV = () => {
-    const headers = ['No.', 'Code', 'Discount', 'Usage Limit', 'Times Used', 'Status', 'Usage History'];
+    const headers = ['Code', 'Discount', 'Usage Limit', 'Times Used', 'Status', 'Min Purchase', 'Max Discount', 'Allow Combination', 'Created Date'];
     const csvData = [
       headers.join(','),
-      ...filteredCoupons.map((coupon, index) => {
+      ...filteredCoupons.map((coupon) => {
         const usageData = getCouponUsageData(coupon.id);
         return [
-          index + 1,
           `"${coupon.code}"`,
           `"${formatCouponDiscount(coupon.discount)}"`,
           coupon.usageLimit,
           usageData.timesUsed,
           `"${coupon.status}"`,
-          `"${usageData.usageHistory.length} uses"`
+          coupon.minimumPurchase ? formatPrice(coupon.minimumPurchase) : 'None',
+          coupon.maximumDiscount ? formatPrice(coupon.maximumDiscount) : 'None',
+          coupon.allowCombination ? 'Yes' : 'No',
+          `"${coupon.createdAt ? new Date(coupon.createdAt).toLocaleDateString() : 'N/A'}"`
         ].join(',');
       })
     ].join('\n');
@@ -174,6 +236,24 @@ const Coupons = () => {
     toast.success('Coupons exported to CSV successfully');
   };
 
+  // Get status badge info
+  const getStatusInfo = (coupon: any) => {
+    const expired = isCouponExpired(coupon);
+    const limitReached = isUsageLimitReached(coupon);
+    
+    if (expired) {
+      return { text: 'Expired', className: 'bg-red-100 text-red-800' };
+    } else if (coupon.status === 'Inactive') {
+      return { text: 'Inactive', className: 'bg-gray-100 text-gray-800' };
+    } else if (limitReached) {
+      return { text: 'Limit Reached', className: 'bg-orange-100 text-orange-800' };
+    } else if (coupon.status === 'Active') {
+      return { text: 'Active', className: 'bg-green-100 text-green-800' };
+    } else {
+      return { text: coupon.status, className: 'bg-gray-100 text-gray-800' };
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -184,6 +264,13 @@ const Coupons = () => {
             <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-sm font-medium">
               {coupons.length}
             </span>
+            {/* Show warning if expired coupons exist */}
+            {coupons.some(c => isCouponExpired(c) && c.status === 'Active') && (
+              <div className="flex items-center text-amber-600 text-sm">
+                <AlertTriangle className="w-4 h-4 mr-1" />
+                <span>Some coupons have expired</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center space-x-3">
             <Button variant="outline" size="sm" onClick={handleExportToCSV}>
@@ -218,6 +305,7 @@ const Coupons = () => {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
                 <SelectItem value="limit-reached">Limit Reached</SelectItem>
               </SelectContent>
             </Select>
@@ -267,9 +355,12 @@ const Coupons = () => {
                 <TableHead>№</TableHead>
                 <TableHead>CODE</TableHead>
                 <TableHead>DISCOUNT</TableHead>
+                <TableHead>MIN PURCHASE</TableHead>
+                <TableHead>MAX DISCOUNT</TableHead>
                 <TableHead>USAGE LIMIT</TableHead>
                 <TableHead>USAGE</TableHead>
                 <TableHead>STATUS</TableHead>
+                <TableHead>COMBINATION</TableHead>
                 <TableHead>USAGE HISTORY</TableHead>
                 <TableHead className="w-[100px]">ACTIONS</TableHead>
               </TableRow>
@@ -277,13 +368,14 @@ const Coupons = () => {
             <TableBody>
               {paginatedCoupons.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={11} className="text-center py-8 text-gray-500">
                     {searchTerm ? 'No coupons found matching your search.' : 'No entries!'}
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedCoupons.map((coupon, index) => {
                   const usageData = getCouponUsageData(coupon.id);
+                  const statusInfo = getStatusInfo(coupon);
                   return (
                     <TableRow 
                       key={coupon.id} 
@@ -298,8 +390,14 @@ const Coupons = () => {
                         />
                       </TableCell>
                       <TableCell>{startIndex + index + 1}</TableCell>
-                       <TableCell className="font-medium">{coupon.code}</TableCell>
-                       <TableCell>{formatCouponDiscount(coupon.discount)}</TableCell>
+                      <TableCell className="font-medium">{coupon.code}</TableCell>
+                      <TableCell>{formatCouponDiscount(coupon.discount)}</TableCell>
+                      <TableCell>
+                        {coupon.minimumPurchase ? formatPrice(coupon.minimumPurchase) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {coupon.maximumDiscount ? formatPrice(coupon.maximumDiscount) : '-'}
+                      </TableCell>
                       <TableCell>{coupon.usageLimit}</TableCell>
                       <TableCell>
                         <span className="font-medium text-blue-600">
@@ -310,20 +408,13 @@ const Coupons = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          coupon.status === 'Active' && 
-                          (coupon.usageLimit === 'No limit' || usageData.timesUsed < parseInt(coupon.usageLimit))
-                            ? 'bg-green-100 text-green-800' 
-                            : coupon.status === 'Active' && usageData.timesUsed >= parseInt(coupon.usageLimit)
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {coupon.status === 'Active' && 
-                           coupon.usageLimit !== 'No limit' && 
-                           usageData.timesUsed >= parseInt(coupon.usageLimit) 
-                            ? 'Limit Reached' 
-                            : coupon.status
-                          }
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.className}`}>
+                          {statusInfo.text}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`text-xs ${coupon.allowCombination ? 'text-green-600' : 'text-orange-600'}`}>
+                          {coupon.allowCombination ? 'Allowed' : 'Restricted'}
                         </span>
                       </TableCell>
                       <TableCell>
