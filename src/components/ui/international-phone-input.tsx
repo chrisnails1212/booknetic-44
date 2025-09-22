@@ -1,7 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Country {
@@ -51,6 +55,63 @@ interface InternationalPhoneInputProps {
   disabled?: boolean;
 }
 
+// Auto-detect country from browser locale and timezone
+const detectCountryFromLocale = (): Country => {
+  try {
+    // Try to get country from locale
+    const locale = navigator.language || 'en-US';
+    const countryCode = locale.split('-')[1];
+    
+    if (countryCode) {
+      const country = countries.find(c => c.code === countryCode);
+      if (country) return country;
+    }
+    
+    // Try to get timezone and map to country
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timezoneCountryMap: Record<string, string> = {
+      'America/New_York': 'US',
+      'America/Los_Angeles': 'US',
+      'America/Chicago': 'US',
+      'America/Toronto': 'CA',
+      'Europe/London': 'GB',
+      'Europe/Berlin': 'DE',
+      'Europe/Paris': 'FR',
+      'Europe/Rome': 'IT',
+      'Europe/Madrid': 'ES',
+      'Europe/Amsterdam': 'NL',
+      'Asia/Tokyo': 'JP',
+      'Asia/Seoul': 'KR',
+      'Asia/Shanghai': 'CN',
+      'Asia/Kolkata': 'IN',
+      'Australia/Sydney': 'AU',
+      'America/Sao_Paulo': 'BR',
+      'America/Mexico_City': 'MX',
+      'Europe/Moscow': 'RU',
+      'Africa/Johannesburg': 'ZA',
+      'Africa/Cairo': 'EG',
+      'Africa/Lagos': 'NG',
+      'Europe/Istanbul': 'TR',
+      'Asia/Riyadh': 'SA',
+      'Asia/Dubai': 'AE',
+      'Asia/Singapore': 'SG',
+      'Asia/Kuala_Lumpur': 'MY',
+      'Asia/Bangkok': 'TH',
+    };
+    
+    const detectedCountry = timezoneCountryMap[timezone];
+    if (detectedCountry) {
+      const country = countries.find(c => c.code === detectedCountry);
+      if (country) return country;
+    }
+  } catch (error) {
+    console.warn('Failed to detect country from locale/timezone:', error);
+  }
+  
+  // Fallback to US
+  return countries[0];
+};
+
 export const InternationalPhoneInput: React.FC<InternationalPhoneInputProps> = ({
   value = '',
   onChange,
@@ -60,11 +121,13 @@ export const InternationalPhoneInput: React.FC<InternationalPhoneInputProps> = (
   required = false,
   disabled = false
 }) => {
-  const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(detectCountryFromLocale());
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryPopoverOpen, setCountryPopoverOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Parse existing value to extract country and number
-  React.useEffect(() => {
+  useEffect(() => {
     if (value && value.startsWith('+')) {
       const country = countries.find(c => value.startsWith(c.dialCode));
       if (country) {
@@ -75,6 +138,13 @@ export const InternationalPhoneInput: React.FC<InternationalPhoneInputProps> = (
       setPhoneNumber(value);
     }
   }, [value]);
+
+  // Convert to E.164 format for storage
+  const toE164Format = (phone: string, country: Country): string => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (!cleaned) return '';
+    return `${country.dialCode}${cleaned}`;
+  };
 
   const formatPhoneNumber = (number: string, format: string): string => {
     const cleaned = number.replace(/\D/g, '');
@@ -98,16 +168,21 @@ export const InternationalPhoneInput: React.FC<InternationalPhoneInputProps> = (
     const formatted = formatPhoneNumber(cleaned, selectedCountry.format);
     setPhoneNumber(formatted);
     
-    const fullNumber = `${selectedCountry.dialCode} ${formatted}`.trim();
-    onChange(fullNumber);
+    // Output E.164 format for storage
+    const e164Number = toE164Format(formatted, selectedCountry);
+    onChange(e164Number);
   };
 
   const handleCountryChange = (countryCode: string) => {
     const country = countries.find(c => c.code === countryCode);
     if (country) {
       setSelectedCountry(country);
-      const fullNumber = phoneNumber ? `${country.dialCode} ${phoneNumber}`.trim() : '';
-      onChange(fullNumber);
+      setCountryPopoverOpen(false);
+      setSearchQuery('');
+      
+      // Output E.164 format for storage
+      const e164Number = phoneNumber ? toE164Format(phoneNumber, country) : '';
+      onChange(e164Number);
     }
   };
 
@@ -122,6 +197,17 @@ export const InternationalPhoneInput: React.FC<InternationalPhoneInputProps> = (
     return isValidPhoneNumber(phoneNumber, selectedCountry);
   }, [phoneNumber, selectedCountry]);
 
+  // Filter countries based on search query
+  const filteredCountries = useMemo(() => {
+    if (!searchQuery) return countries;
+    const query = searchQuery.toLowerCase();
+    return countries.filter(country => 
+      country.name.toLowerCase().includes(query) ||
+      country.dialCode.includes(query) ||
+      country.code.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
+
   return (
     <div className={cn('space-y-2', className)}>
       {label && (
@@ -131,45 +217,84 @@ export const InternationalPhoneInput: React.FC<InternationalPhoneInputProps> = (
         </Label>
       )}
       <div className="flex gap-2">
-        <Select value={selectedCountry.code} onValueChange={handleCountryChange} disabled={disabled}>
-          <SelectTrigger className="w-48">
-            <SelectValue>
+        <Popover open={countryPopoverOpen} onOpenChange={setCountryPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={countryPopoverOpen}
+              className="w-48 justify-between"
+              disabled={disabled}
+            >
               <div className="flex items-center gap-2">
                 <span>{selectedCountry.flag}</span>
                 <span className="text-sm">{selectedCountry.dialCode}</span>
               </div>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {countries.map((country) => (
-              <SelectItem key={country.code} value={country.code}>
-                <div className="flex items-center gap-2">
-                  <span>{country.flag}</span>
-                  <span className="text-sm font-medium">{country.name}</span>
-                  <span className="text-sm text-muted-foreground">{country.dialCode}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0" align="start">
+            <Command>
+              <CommandInput 
+                placeholder="Search countries..." 
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                className="h-9"
+              />
+              <CommandEmpty>No country found.</CommandEmpty>
+              <CommandGroup>
+                <CommandList className="max-h-[200px] overflow-auto">
+                  {filteredCountries.map((country) => (
+                    <CommandItem
+                      key={country.code}
+                      value={country.code}
+                      onSelect={() => handleCountryChange(country.code)}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>{country.flag}</span>
+                      <span className="flex-1 text-sm font-medium">{country.name}</span>
+                      <span className="text-sm text-muted-foreground">{country.dialCode}</span>
+                      <Check 
+                        className={cn(
+                          "ml-auto h-4 w-4",
+                          selectedCountry.code === country.code ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </CommandGroup>
+            </Command>
+          </PopoverContent>
+        </Popover>
         
         <div className="flex-1">
-          <Input
-            type="tel"
-            value={phoneNumber}
-            onChange={(e) => handlePhoneChange(e.target.value)}
-            placeholder={placeholder || selectedCountry.example}
-            disabled={disabled}
-            className={cn(
-              'w-full',
-              !isValid && phoneNumber && 'border-red-500 focus:border-red-500'
-            )}
-          />
-          {!isValid && phoneNumber && (
-            <p className="text-xs text-red-500 mt-1">
-              Please enter a valid phone number for {selectedCountry.name}
-            </p>
-          )}
+            <Input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              placeholder={placeholder || selectedCountry.example}
+              disabled={disabled}
+              className={cn(
+                'w-full transition-colors',
+                !isValid && phoneNumber && 'border-red-500 focus:border-red-500 ring-red-200',
+                isValid && phoneNumber && 'border-green-500 focus:border-green-500 ring-green-200'
+              )}
+            />
+            <div className="min-h-[1rem]">
+              {!isValid && phoneNumber && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                  Please enter a valid phone number for {selectedCountry.name}
+                </p>
+              )}
+              {isValid && phoneNumber && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <span className="w-1 h-1 bg-green-600 rounded-full"></span>
+                  Valid phone number (E.164: {toE164Format(phoneNumber, selectedCountry)})
+                </p>
+              )}
+            </div>
         </div>
       </div>
     </div>
