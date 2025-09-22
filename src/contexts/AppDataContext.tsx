@@ -7,6 +7,8 @@ export interface Customer {
   lastName: string;
   email: string;
   phone: string;
+  gender: string;
+  dateOfBirth?: Date;
   note: string;
   allowLogin: boolean;
   image?: string;
@@ -579,6 +581,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     const lastName = customFields.lastName || customFields['Last Name'] || customFields['Last-name'] || customFields['last-name'] || customFields.lastname || '';
     const email = customFields.email || customFields['Email'] || '';
     const phone = customFields.phone || customFields['Phone'] || customFields.phoneNumber || '';
+    const gender = customFields.gender || customFields['Gender'] || '';
+    const dateOfBirth = customFields.dateOfBirth || customFields['Date of Birth'] || customFields['Date-of-birth'] || customFields['date-of-birth'] || '';
     const note = customFields.note || customFields['Note'] || '';
 
     // Only create customer if we have meaningful data (at least first name, last name, or email)
@@ -619,6 +623,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         if (lastName && !existingCustomer.lastName) updatedCustomerData.lastName = lastName;
         if (email && !existingCustomer.email) updatedCustomerData.email = email;
         if (phone && !existingCustomer.phone) updatedCustomerData.phone = phone;
+        if (gender && !existingCustomer.gender) updatedCustomerData.gender = gender;
+        if (dateOfBirth && !existingCustomer.dateOfBirth) updatedCustomerData.dateOfBirth = new Date(dateOfBirth);
         if (note && !existingCustomer.note) updatedCustomerData.note = note;
         
         // Update the customer with new information if any missing data was found
@@ -635,6 +641,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         lastName: lastName || '',
         email: email || '',
         phone: phone || '',
+        gender: gender || '',
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         note: note || 'Auto-created from appointment booking',
         allowLogin: true
       });

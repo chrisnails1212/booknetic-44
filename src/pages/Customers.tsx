@@ -77,6 +77,8 @@ export default function Customers() {
         customer.lastName,
         customer.email,
         customer.phone,
+        customer.gender,
+        customer.dateOfBirth ? format(new Date(customer.dateOfBirth), 'yyyy-MM-dd') : '',
         customer.allowLogin ? 'Yes' : 'No',
         customer.note,
         appointmentCount.toString(),
@@ -148,6 +150,8 @@ export default function Customers() {
             lastName: lastName,
             email: email,
             phone: phone,
+            gender: gender.toLowerCase(),
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
             allowLogin: allowLogin.toLowerCase() === 'yes' || allowLogin.toLowerCase() === 'true',
             note: note
           };
@@ -251,13 +255,15 @@ export default function Customers() {
                 <TableHead>PHONE ↕</TableHead>
                 <TableHead>LAST APPOINTMENT ↕</TableHead>
                 <TableHead>TOTAL APPOINTMENTS</TableHead>
+                <TableHead>GENDER ↕</TableHead>
+                <TableHead>DATE OF BIRTH ↕</TableHead>
                 <TableHead className="w-20">ACTIONS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredCustomers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-gray-500">
+                  <TableCell colSpan={9} className="text-center py-12 text-gray-500">
                     {customers.length === 0 
                       ? "No customers yet! Add your first customer." 
                       : "No customers match your search criteria."
@@ -283,6 +289,13 @@ export default function Customers() {
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
                           {appointmentCount}
                         </span>
+                      </TableCell>
+                      <TableCell className="capitalize">{customer.gender}</TableCell>
+                      <TableCell>
+                        {customer.dateOfBirth 
+                          ? format(new Date(customer.dateOfBirth), 'MMM dd, yyyy')
+                          : '-'
+                        }
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={(e) => {
