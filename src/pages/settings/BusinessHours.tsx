@@ -18,21 +18,36 @@ const BusinessHours = () => {
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
   ];
 
-  const [settings, setSettings] = useState({
-    workingDays: {
-      Monday: { enabled: true, start: '09:00', end: '17:00' },
-      Tuesday: { enabled: true, start: '09:00', end: '17:00' },
-      Wednesday: { enabled: true, start: '09:00', end: '17:00' },
-      Thursday: { enabled: true, start: '09:00', end: '17:00' },
-      Friday: { enabled: true, start: '09:00', end: '17:00' },
-      Saturday: { enabled: false, start: '09:00', end: '17:00' },
-      Sunday: { enabled: false, start: '09:00', end: '17:00' }
-    },
-    lunchStart: '12:00',
-    lunchEnd: '13:00'
+  const [settings, setSettings] = useState(() => {
+    // Load existing settings from localStorage or use defaults
+    const savedSettings = localStorage.getItem('businessHours');
+    if (savedSettings) {
+      return JSON.parse(savedSettings);
+    }
+    
+    return {
+      workingDays: {
+        Monday: { enabled: true, start: '09:00', end: '17:00' },
+        Tuesday: { enabled: true, start: '09:00', end: '17:00' },
+        Wednesday: { enabled: true, start: '09:00', end: '17:00' },
+        Thursday: { enabled: true, start: '09:00', end: '17:00' },
+        Friday: { enabled: true, start: '09:00', end: '17:00' },
+        Saturday: { enabled: false, start: '09:00', end: '17:00' },
+        Sunday: { enabled: false, start: '09:00', end: '17:00' }
+      },
+      lunchStart: '12:00',
+      lunchEnd: '13:00'
+    };
   });
 
   const handleSave = () => {
+    // Save business hours to localStorage for calendar integration
+    localStorage.setItem('businessHours', JSON.stringify({
+      workingDays: settings.workingDays,
+      lunchStart: settings.lunchStart,
+      lunchEnd: settings.lunchEnd
+    }));
+    
     toast({
       title: "Settings saved",
       description: "Business hours have been updated successfully.",

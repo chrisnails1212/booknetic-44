@@ -35,6 +35,43 @@ export const Calendar = () => {
     search: ''
   });
 
+  // Helper function to get business hours range for time slots
+  const getBusinessHoursRange = () => {
+    // Get from localStorage or default business hours
+    const defaultHours = {
+      Monday: { enabled: true, start: '09:00', end: '17:00' },
+      Tuesday: { enabled: true, start: '09:00', end: '17:00' },
+      Wednesday: { enabled: true, start: '09:00', end: '17:00' },
+      Thursday: { enabled: true, start: '09:00', end: '17:00' },
+      Friday: { enabled: true, start: '09:00', end: '17:00' },
+      Saturday: { enabled: false, start: '09:00', end: '17:00' },
+      Sunday: { enabled: false, start: '09:00', end: '17:00' }
+    };
+
+    const savedHours = localStorage.getItem('businessHours');
+    const businessHours = savedHours ? JSON.parse(savedHours).workingDays : defaultHours;
+    
+    // Find earliest start and latest end from enabled days
+    let earliestStart = '09:00';
+    let latestEnd = '17:00';
+    
+    Object.values(businessHours).forEach((day: any) => {
+      if (day.enabled) {
+        if (day.start < earliestStart) earliestStart = day.start;
+        if (day.end > latestEnd) latestEnd = day.end;
+      }
+    });
+
+    const startHour = parseInt(earliestStart.split(':')[0]);
+    const endHour = parseInt(latestEnd.split(':')[0]);
+    
+    return { startHour, endHour, duration: endHour - startHour };
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
   const { 
     appointments, 
     updateAppointment, 
@@ -331,6 +368,7 @@ export const Calendar = () => {
   const renderWeekView = () => {
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+    const { startHour, duration } = getBusinessHoursRange();
     
     return (
       <div className="bg-white rounded-lg border border-slate-200">
@@ -347,8 +385,8 @@ export const Calendar = () => {
             );
           })}
         </div>
-        {Array.from({ length: 12 }, (_, hour) => {
-          const timeSlot = `${hour + 8}:00`;
+        {Array.from({ length: duration }, (_, hour) => {
+          const timeSlot = `${hour + startHour}:00`;
           return (
             <div key={hour} className="grid grid-cols-8 border-b border-slate-200">
               <div className="p-2 text-xs text-slate-500 border-r border-slate-200">
@@ -357,7 +395,7 @@ export const Calendar = () => {
               {Array.from({ length: 7 }, (_, day) => {
                 const dayDate = new Date(startOfWeek);
                 dayDate.setDate(startOfWeek.getDate() + day);
-                const timeAppointments = getAppointmentsForTimeSlot(dayDate, hour + 8);
+                const timeAppointments = getAppointmentsForTimeSlot(dayDate, hour + startHour);
                 const cellId = `week-${dayDate.toDateString()}-${timeSlot}`;
                 const isDragOver = dragOverCell === cellId;
                 
@@ -386,7 +424,10 @@ export const Calendar = () => {
     );
   };
 
-  const renderDayView = () => (
+  const renderDayView = () => {
+    const { startHour, duration } = getBusinessHoursRange();
+    
+    return (
     <div className="bg-white rounded-lg border border-slate-200">
       <div className="grid grid-cols-2 border-b border-slate-200">
         <div className="p-4 border-r border-slate-200"></div>
@@ -394,9 +435,9 @@ export const Calendar = () => {
           {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </div>
       </div>
-      {Array.from({ length: 12 }, (_, hour) => {
-        const timeSlot = `${hour + 8}:00`;
-        const timeAppointments = getAppointmentsForTimeSlot(currentDate, hour + 8);
+      {Array.from({ length: duration }, (_, hour) => {
+        const timeSlot = `${hour + startHour}:00`;
+        const timeAppointments = getAppointmentsForTimeSlot(currentDate, hour + startHour);
         const cellId = `day-${currentDate.toDateString()}-${timeSlot}`;
         const isDragOver = dragOverCell === cellId;
         
@@ -423,7 +464,8 @@ export const Calendar = () => {
         );
       })}
     </div>
-  );
+    );
+  };
 
   const renderListView = () => {
     const todayAppointments = getAppointmentsForDate(currentDate);
@@ -639,12 +681,14 @@ export const Calendar = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="confirmed">Confirmed</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="confirmed">Confirmed</SelectItem>
                           <SelectItem value="cancelled">Cancelled</SelectItem>
                           <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="No-show">No-show</SelectItem>
-                          <SelectItem value="Emergency">Emergency</SelectItem>
+                          <SelectItem value="no-show">No Show</SelectItem>
+                          <SelectItem value="emergency">Emergency</SelectItem>
+                          <SelectItem value="rescheduled">Rescheduled</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -811,6 +855,7 @@ export const Calendar = () => {
               variant="outline"
               size="sm"
               className="bg-blue-600 text-white hover:bg-blue-700"
+              onClick={goToToday}
             >
               TODAY
             </Button>
