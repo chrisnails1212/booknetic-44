@@ -28,7 +28,7 @@ const BookingPage = () => {
   const { businessSlug } = useParams();
   const { toast } = useToast();
   const { theme } = useBookingTheme();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency } = useCurrency();
   console.log('BookingPage: Current theme is', theme);
   const { locations, staff, services, coupons, giftcards, taxes, customers, appointments, addCustomer, updateCustomer, addAppointment } = useAppData();
   // Auto-select location if only one exists and start from service step
@@ -115,7 +115,11 @@ const BookingPage = () => {
         const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
         totalDiscount += subtotal * (percentage / 100);
       } else {
-        totalDiscount += parseFloat(availableCoupon.discount.replace('$', ''));
+        // Remove any currency symbol from the start of the discount string
+        const discountValue = parseFloat(availableCoupon.discount.replace(/^[^\d.]+/, ''));
+        if (!isNaN(discountValue)) {
+          totalDiscount += discountValue;
+        }
       }
     }
 
@@ -147,7 +151,11 @@ const BookingPage = () => {
         const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
         subtotal = subtotal * (1 - percentage / 100);
       } else {
-        subtotal -= parseFloat(availableCoupon.discount.replace('$', ''));
+        // Remove any currency symbol from the start of the discount string
+        const discountValue = parseFloat(availableCoupon.discount.replace(/^[^\d.]+/, ''));
+        if (!isNaN(discountValue)) {
+          subtotal -= discountValue;
+        }
       }
     }
 
@@ -1624,7 +1632,7 @@ const BookingPage = () => {
                   {applicableTaxes.length > 0 && (
                     <div className="flex justify-between items-center py-1">
                       <span className="text-red-600 font-medium">TAX</span>
-                      <span className="text-red-600 font-bold">+${applicableTaxes.reduce((total, tax) => 
+                      <span className="text-red-600 font-bold">+{currency.symbol}{applicableTaxes.reduce((total, tax) => 
                         total + ((selectedServiceData?.price || 0) + selectedExtras.reduce((extraTotal, extraId) => {
                           const extra = selectedServiceData?.extras?.find(e => e.id === extraId);
                           return extraTotal + (extra?.price || 0);
@@ -1636,7 +1644,7 @@ const BookingPage = () => {
                   {(availableCoupon || availableGiftcard) && (
                     <div className="flex justify-between items-center py-1">
                       <span className="text-orange-600 font-medium">Discount</span>
-                      <span className="text-orange-600 font-bold">-${calculateDiscountAmount().toFixed(2)}</span>
+                      <span className="text-orange-600 font-bold">-{currency.symbol}{calculateDiscountAmount().toFixed(2)}</span>
                     </div>
                   )}
                 </div>
