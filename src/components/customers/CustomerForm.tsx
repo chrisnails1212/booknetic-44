@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -222,10 +223,17 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     });
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleDelete = () => {
-    if (customer && confirm('Are you sure you want to delete this customer?')) {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (customer) {
       deleteCustomer(customer.id);
       onClose();
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -434,6 +442,23 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
           </div>
         </form>
       </SheetContent>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this customer? This action cannot be undone and will permanently remove all customer data and appointment history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Customer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 };

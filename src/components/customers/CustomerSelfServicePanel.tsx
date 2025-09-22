@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -247,9 +248,17 @@ export const CustomerSelfServicePanel = ({
     toast.success('Appointment rescheduled successfully!');
   };
 
+  const [cancellingAppointment, setCancellingAppointment] = useState<string | null>(null);
+
   // Handle appointment cancellation
   const handleCancel = (appointmentId: string) => {
-    const appointment = customerAppointments.find(apt => apt.id === appointmentId);
+    setCancellingAppointment(appointmentId);
+  };
+
+  const confirmCancel = () => {
+    if (!cancellingAppointment) return;
+    
+    const appointment = customerAppointments.find(apt => apt.id === cancellingAppointment);
     if (!appointment) return;
 
     // Check if appointment is at least 24 hours away
@@ -258,13 +267,15 @@ export const CustomerSelfServicePanel = ({
     const minCancelTime = addDays(new Date(), 1);
     if (isBefore(appointmentDateTime, minCancelTime)) {
       toast.error('Appointments can only be cancelled at least 24 hours in advance');
+      setCancellingAppointment(null);
       return;
     }
-    updateAppointment(appointmentId, {
+    updateAppointment(cancellingAppointment, {
       status: 'Cancelled'
     });
     setCustomerAppointments(getCustomerAppointments(currentCustomer!.id));
     toast.success('Appointment cancelled successfully');
+    setCancellingAppointment(null);
   };
 
   // Get status badge variant
@@ -649,5 +660,22 @@ export const CustomerSelfServicePanel = ({
             </Tabs>
           </div>}
       </DialogContent>
+
+      <AlertDialog open={!!cancellingAppointment} onOpenChange={() => setCancellingAppointment(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Appointment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this appointment? This action cannot be undone. Please note that appointments can only be cancelled at least 24 hours in advance.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Appointment</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Cancel Appointment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>;
 };
