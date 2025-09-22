@@ -1359,7 +1359,10 @@ const BookingPage = () => {
                   <strong>Service Duration:</strong> {totalServiceDuration} minutes
                   {selectedExtras.length > 0 && (
                     <span className="block mt-1">
-                      (Base: {selectedServiceForTime.duration} min + Extras: {totalServiceDuration - selectedServiceForTime.duration} min)
+                      ({selectedServiceForTime.name}: {selectedServiceForTime.duration} min + {selectedExtras.map(extraId => {
+                        const extra = selectedServiceForTime.extras?.find(e => e.id === extraId);
+                        return extra ? `${extra.name}: ${extra.duration} min` : '';
+                      }).filter(Boolean).join(' + ')})
                     </span>
                   )}
                 </p>
