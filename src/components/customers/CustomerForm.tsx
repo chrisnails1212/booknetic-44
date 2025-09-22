@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, X, Eye, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Plus, X, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppData, Customer } from '@/contexts/AppDataContext';
@@ -26,8 +26,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     lastName: '',
     email: '',
     phone: '',
-        allowLogin: true,
-        portalLockEnabled: false,
+    allowLogin: true,
     image: '',
     gender: '',
     dateOfBirth: undefined as Date | undefined,
@@ -36,35 +35,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
 
   const { addCustomer, updateCustomer, deleteCustomer, getCustomerAppointments, appointments, customers } = useAppData();
 
-  // Portal lock helper functions
-  const getPortalLockSettings = (email: string) => {
-    if (!email) return { enabled: false };
-    try {
-      const stored = localStorage.getItem(`portalLock_${email}`);
-      return stored ? JSON.parse(stored) : { enabled: false };
-    } catch {
-      return { enabled: false };
-    }
-  };
-
-  // Check if customer has set up portal lock password
-  const hasCustomerSetPortalLockPassword = (email: string) => {
-    if (!email) return false;
-    const customerPortalLockPassword = localStorage.getItem(`portal_lock_${email.toLowerCase()}`);
-    const customerPortalLockEnabled = localStorage.getItem(`portal_lock_enabled_${email.toLowerCase()}`) === 'true';
-    return customerPortalLockEnabled && customerPortalLockPassword && customerPortalLockPassword.trim() !== '';
-  };
-
-  const updatePortalLockSettings = (email: string, enabled: boolean) => {
-    if (!email) return;
-    try {
-      const currentSettings = getPortalLockSettings(email);
-      const newSettings = { ...currentSettings, enabled };
-      localStorage.setItem(`portalLock_${email}`, JSON.stringify(newSettings));
-    } catch (error) {
-      console.error('Failed to update portal lock settings:', error);
-    }
-  };
 
   // Function to auto-fill form from recent "First Visit Customer Form" responses
   const getAutoFillDataFromFirstVisitForm = () => {
@@ -122,17 +92,12 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
 
   useEffect(() => {
     if (customer) {
-      const portalLockSettings = getPortalLockSettings(customer.email);
-      // Default to enabled if customer has set up portal lock password
-      const defaultPortalLockEnabled = hasCustomerSetPortalLockPassword(customer.email) ? true : portalLockSettings.enabled;
-      
       setFormData({
         firstName: customer.firstName || '',
         lastName: customer.lastName || '',
         email: customer.email || '',
         phone: customer.phone || '',
         allowLogin: customer.allowLogin || false,
-        portalLockEnabled: defaultPortalLockEnabled,
         image: customer.image || '',
         gender: customer.gender || '',
         dateOfBirth: customer.dateOfBirth ? new Date(customer.dateOfBirth) : undefined,
@@ -143,16 +108,12 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       const autoFillData = getAutoFillDataFromFirstVisitForm();
       
       if (autoFillData) {
-        // Check if this email has portal lock password set up
-        const defaultPortalLockEnabled = hasCustomerSetPortalLockPassword(autoFillData.email);
-        
         setFormData({
           firstName: autoFillData.firstName,
           lastName: autoFillData.lastName,
           email: autoFillData.email,
           phone: autoFillData.phone,
           allowLogin: true,
-          portalLockEnabled: defaultPortalLockEnabled,
           image: '',
           gender: autoFillData.gender,
           dateOfBirth: autoFillData.dateOfBirth,
@@ -165,7 +126,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
           email: '',
           phone: '',
           allowLogin: true,
-          portalLockEnabled: false,
           image: '',
           gender: '',
           dateOfBirth: undefined,
@@ -196,12 +156,8 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
 
     if (customer) {
       updateCustomer(customer.id, customerData);
-      // Update portal lock settings
-      updatePortalLockSettings(formData.email, formData.portalLockEnabled);
     } else {
       addCustomer(customerData);
-      // Set initial portal lock settings for new customer
-      updatePortalLockSettings(formData.email, formData.portalLockEnabled);
     }
     
     onClose();
@@ -212,7 +168,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       email: '',
       phone: '',
       allowLogin: true,
-      portalLockEnabled: false,
       image: '',
       gender: '',
       dateOfBirth: undefined,
@@ -323,36 +278,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
             />
           </div>
 
-          {/* Portal Lock Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label htmlFor="portalLockEnabled" className="text-sm font-medium">Portal Lock</Label>
-              <p className="text-xs text-gray-500">
-                {hasCustomerSetPortalLockPassword(formData.email) 
-                  ? "Require password for customer portal access" 
-                  : "Customer must set up portal lock password first"
-                }
-              </p>
-            </div>
-            <Switch
-              id="portalLockEnabled"
-              checked={formData.portalLockEnabled}
-              onCheckedChange={(checked) => handleInputChange('portalLockEnabled', checked)}
-              disabled={!formData.allowLogin || !hasCustomerSetPortalLockPassword(formData.email)}
-            />
-          </div>
-          
-          {formData.email && !hasCustomerSetPortalLockPassword(formData.email) && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
-                <div className="text-sm text-amber-800">
-                  <p className="font-medium">Portal Lock Not Available</p>
-                  <p>The customer needs to enable portal lock in their Customer Portal before you can manage this setting.</p>
-                </div>
-              </div>
-            </div>
-          )}
 
 
           {/* Gender and Date of Birth */}

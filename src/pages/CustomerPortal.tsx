@@ -17,9 +17,9 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 
+
 export default function CustomerPortal() {
   const [customerEmail, setCustomerEmail] = useState('');
-  const [portalLock, setPortalLock] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
   const [customerAppointments, setCustomerAppointments] = useState<Appointment[]>([]);
@@ -52,169 +52,6 @@ export default function CustomerPortal() {
 
   const { formatPrice } = useCurrency();
 
-  // Portal Lock Settings Component
-  const PortalLockSettings = ({ customerEmail }: { customerEmail: string }) => {
-    const [isEnabled, setIsEnabled] = useState(isPortalLockEnabled(customerEmail));
-    const [newLockPassword, setNewLockPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [isChangingPassword, setIsChangingPassword] = useState(false);
-
-    const handleTogglePortalLock = (enabled: boolean) => {
-      if (enabled) {
-        setIsChangingPassword(true);
-      } else {
-        setPortalLockForCustomer(customerEmail, '', false);
-        setIsEnabled(false);
-        setNewLockPassword('');
-        setConfirmPassword('');
-        setIsChangingPassword(false);
-        toast.success('Portal lock disabled');
-      }
-    };
-
-    const handleSetPassword = () => {
-      if (!newLockPassword.trim()) {
-        toast.error('Please enter a portal lock password');
-        return;
-      }
-
-      if (newLockPassword !== confirmPassword) {
-        toast.error('Passwords do not match');
-        return;
-      }
-
-      if (newLockPassword.length < 4) {
-        toast.error('Portal lock password must be at least 4 characters');
-        return;
-      }
-
-      setPortalLockForCustomer(customerEmail, newLockPassword, true);
-      setIsEnabled(true);
-      setNewLockPassword('');
-      setConfirmPassword('');
-      setIsChangingPassword(false);
-      toast.success('Portal lock enabled successfully');
-    };
-
-    const handleCancelPasswordChange = () => {
-      setNewLockPassword('');
-      setConfirmPassword('');
-      setIsChangingPassword(false);
-    };
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h4 className="text-sm font-medium">Portal Lock</h4>
-            <p className="text-sm text-muted-foreground">
-              Require an additional password to access your portal
-            </p>
-          </div>
-          <Switch
-            checked={isEnabled}
-            onCheckedChange={handleTogglePortalLock}
-            disabled={isChangingPassword}
-          />
-        </div>
-
-        {isChangingPassword && (
-          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-            <h5 className="font-medium">Set Portal Lock Password</h5>
-            <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="newLockPassword">New Portal Lock Password</Label>
-                <Input
-                  id="newLockPassword"
-                  type="password"
-                  value={newLockPassword}
-                  onChange={(e) => setNewLockPassword(e.target.value)}
-                  placeholder="Enter new portal lock password"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm portal lock password"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSetPassword} size="sm">
-                  Enable Portal Lock
-                </Button>
-                <Button onClick={handleCancelPasswordChange} variant="outline" size="sm">
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isEnabled && !isChangingPassword && (
-          <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/20">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-800 dark:text-green-400">
-                Portal lock is enabled
-              </span>
-            </div>
-            <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-              Your portal requires an additional password for access
-            </p>
-            <Button 
-              onClick={() => setIsChangingPassword(true)} 
-              variant="outline" 
-              size="sm" 
-              className="mt-2"
-            >
-              Change Password
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Portal lock functions
-  const getPortalLockKey = (email: string) => `portal_lock_${email.toLowerCase()}`;
-  const getPortalLockEnabledKey = (email: string) => `portal_lock_enabled_${email.toLowerCase()}`;
-
-  const isPortalLockEnabled = (email: string) => {
-    return localStorage.getItem(getPortalLockEnabledKey(email)) === 'true';
-  };
-
-  const isAdminPortalLockEnabled = (email: string) => {
-    try {
-      const stored = localStorage.getItem(`portalLock_${email}`);
-      const settings = stored ? JSON.parse(stored) : { enabled: false };
-      return settings.enabled;
-    } catch {
-      return false;
-    }
-  };
-
-  const isPortalLockRequired = (email: string) => {
-    // Both customer and admin must enable portal lock for password to be required
-    return isPortalLockEnabled(email) && isAdminPortalLockEnabled(email);
-  };
-
-  const getStoredPortalLock = (email: string) => {
-    return localStorage.getItem(getPortalLockKey(email));
-  };
-
-  const setPortalLockForCustomer = (email: string, lockPassword: string, enabled: boolean) => {
-    if (enabled) {
-      localStorage.setItem(getPortalLockKey(email), lockPassword);
-      localStorage.setItem(getPortalLockEnabledKey(email), 'true');
-    } else {
-      localStorage.removeItem(getPortalLockKey(email));
-      localStorage.setItem(getPortalLockEnabledKey(email), 'false');
-    }
-  };
 
   // Authentication
   const handleLogin = (e: React.FormEvent) => {
@@ -229,14 +66,6 @@ export default function CustomerPortal() {
       return;
     }
 
-    // Check if portal lock is required (both customer and admin must enable it)
-    if (isPortalLockRequired(customerEmail)) {
-      const storedLock = getStoredPortalLock(customerEmail);
-      if (!storedLock || portalLock !== storedLock) {
-        toast.error('Incorrect portal lock password');
-        return;
-      }
-    }
 
     setCurrentCustomer(customer);
     setIsAuthenticated(true);
@@ -248,7 +77,6 @@ export default function CustomerPortal() {
     setIsAuthenticated(false);
     setCurrentCustomer(null);
     setCustomerEmail('');
-    setPortalLock('');
     setCustomerAppointments([]);
     setEditingAppointment(null);
     setIsEditingProfile(false);
@@ -529,19 +357,6 @@ export default function CustomerPortal() {
                     />
                   </div>
                   
-                  {customerEmail && isPortalLockRequired(customerEmail) && (
-                    <div className="space-y-2">
-                      <Label htmlFor="portalLock">Portal Lock Password</Label>
-                      <Input
-                        id="portalLock"
-                        type="password"
-                        value={portalLock}
-                        onChange={(e) => setPortalLock(e.target.value)}
-                        placeholder="Enter your portal lock password"
-                        required
-                      />
-                    </div>
-                  )}
                   
                   <Button type="submit" className="w-full">
                     Access Portal
@@ -947,17 +762,6 @@ export default function CustomerPortal() {
                   </CardContent>
                 </Card>
                 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Portal Security</CardTitle>
-                    <CardDescription>
-                      Manage access security for your customer portal
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <PortalLockSettings customerEmail={currentCustomer?.email || ''} />
-                  </CardContent>
-                </Card>
                 
                 {/* Notifications Card */}
                 <Card>
