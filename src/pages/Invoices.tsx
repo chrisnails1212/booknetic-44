@@ -1,8 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Table, 
   TableBody, 
@@ -12,7 +13,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, FileText, Calendar, DollarSign, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, Calendar, DollarSign, Edit, Trash2, Copy, Download } from 'lucide-react';
 import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 import { 
   AlertDialog,
@@ -34,6 +35,10 @@ const Invoices = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingDraft, setEditingDraft] = useState(null);
   const [drafts, setDrafts] = useState([]);
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   useEffect(() => {
     // Load drafts from localStorage
@@ -41,10 +46,21 @@ const Invoices = () => {
     setDrafts(savedDrafts);
   }, [showForm]); // Reload when form is closed
 
-  const filteredInvoices = drafts.filter((draft: any) =>
-    draft.billedTo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    draft.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInvoices = drafts.filter((draft: any) => {
+    const matchesSearch = 
+      draft.billedTo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      draft.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // For now, all invoices are drafts, but we can extend this logic
+    const matchesStatus = statusFilter === 'all' || statusFilter === 'draft';
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedInvoices = filteredInvoices.slice(startIndex, startIndex + itemsPerPage);
 
   const handleEditDraft = (draft: any) => {
     setEditingDraft(draft);
@@ -66,6 +82,65 @@ const Invoices = () => {
     const updatedDrafts = savedDrafts.filter((draft: any) => draft.id !== draftId);
     localStorage.setItem('invoiceDrafts', JSON.stringify(updatedDrafts));
     setDrafts(updatedDrafts);
+    setSelectedInvoices(prev => prev.filter(selectedId => selectedId !== draftId));
+  };
+
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedInvoices(paginatedInvoices.map((invoice: any) => invoice.id));
+    } else {
+      setSelectedInvoices([]);
+    }
+  };
+
+  const handleSelectInvoice = (invoiceId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedInvoices(prev => [...prev, invoiceId]);
+    } else {
+      setSelectedInvoices(prev => prev.filter(id => id !== invoiceId));
+    }
+  };
+
+  // Bulk operations
+  const handleBulkDelete = () => {
+    if (selectedInvoices.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedInvoices.length} invoice(s)?`)) {
+      selectedInvoices.forEach(invoiceId => {
+        handleDeleteDraft(invoiceId);
+      });
+      setSelectedInvoices([]);
+    }
+  };
+
+  const handleBulkDuplicate = () => {
+    // Implement bulk duplicate logic here
+    console.log('Duplicating invoices:', selectedInvoices);
+  };
+
+  const handleExportToCSV = () => {
+    const headers = ['Invoice #', 'Name', 'Date', 'Amount', 'Status'];
+    const csvData = [
+      headers.join(','),
+      ...filteredInvoices.map((draft: any) => [
+        `"${draft.invoiceNumber}"`,
+        `"${draft.billedTo.name}"`,
+        `"${format(new Date(draft.createdAt), 'MMM dd, yyyy')}"`,
+        formatPrice(draft.items.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0)),
+        `"Draft"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `invoices-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (showForm) {
@@ -88,27 +163,73 @@ const Invoices = () => {
               {filteredInvoices.length}
             </span>
           </div>
-          <Button 
-            onClick={handleNewInvoice}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>CREATE INVOICE</span>
-          </Button>
+          <div className="flex items-center space-x-3">
+            <Button variant="outline" size="sm" onClick={handleExportToCSV}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button 
+              onClick={handleNewInvoice}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>CREATE INVOICE</span>
+            </Button>
+          </div>
         </div>
 
+        {/* Search and Filters */}
+        <div className="flex items-center justify-between space-x-4">
+          <div className="flex items-center space-x-4">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <Input
+                placeholder="Search invoices..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
-        {/* Search */}
-        <div className="flex items-center space-x-4">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Bulk Actions */}
+          {selectedInvoices.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">
+                {selectedInvoices.length} selected
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkDuplicate}
+              >
+                <Copy className="w-4 h-4 mr-1" />
+                Duplicate
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkDelete}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -117,18 +238,24 @@ const Invoices = () => {
             <TableHeader>
               <TableRow className="bg-slate-50">
                 <TableHead className="w-12">
-                  <input type="checkbox" className="rounded border-slate-300" />
+                  <Checkbox
+                    checked={
+                      paginatedInvoices.length > 0 &&
+                      paginatedInvoices.every((invoice: any) => selectedInvoices.includes(invoice.id))
+                    }
+                    onCheckedChange={handleSelectAll}
+                  />
                 </TableHead>
                 <TableHead className="font-semibold">Invoice #</TableHead>
                 <TableHead className="font-semibold">Name</TableHead>
                 <TableHead className="font-semibold">Date</TableHead>
                 <TableHead className="font-semibold">Amount</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="w-16"></TableHead>
+                <TableHead className="w-[100px]">ACTIONS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredInvoices.length === 0 ? (
+              {paginatedInvoices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-12">
                     <div className="flex flex-col items-center space-y-3">
@@ -152,10 +279,15 @@ const Invoices = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInvoices.map((draft: any) => (
+                paginatedInvoices.map((draft: any) => (
                   <TableRow key={draft.id} className="hover:bg-slate-50">
                     <TableCell>
-                      <input type="checkbox" className="rounded border-slate-300" />
+                      <Checkbox
+                        checked={selectedInvoices.includes(draft.id)}
+                        onCheckedChange={(checked) => 
+                          handleSelectInvoice(draft.id, checked as boolean)
+                        }
+                      />
                     </TableCell>
                     <TableCell className="font-medium">
                       {draft.invoiceNumber}
@@ -222,15 +354,44 @@ const Invoices = () => {
           </Table>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between text-sm text-slate-500">
-          <div className="flex items-center space-x-2">
-            <span>Showing {filteredInvoices.length} of {drafts.length} invoices</span>
+        {/* Pagination */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInvoices.length)} of {filteredInvoices.length} invoices
+            </span>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-gray-600">per page</span>
           </div>
+
           <div className="flex items-center space-x-2">
-            <span>Need Help?</span>
-            <Button variant="link" className="text-indigo-600 p-0 h-auto">
-              Documentation
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
             </Button>
           </div>
         </div>

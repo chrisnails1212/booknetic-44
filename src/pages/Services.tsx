@@ -600,42 +600,10 @@ export default function Services() {
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>NAME</span>
-                        <ArrowUpDown className="h-3 w-3" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => handleSort('category')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>CATEGORY</span>
-                        <ArrowUpDown className="h-3 w-3" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => handleSort('price')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>PRICE</span>
-                        <ArrowUpDown className="h-3 w-3" />
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => handleSort('duration')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>DURATION</span>
-                        <ArrowUpDown className="h-3 w-3" />
-                      </div>
-                    </TableHead>
+                    <TableHead>NAME</TableHead>
+                    <TableHead>CATEGORY</TableHead>
+                    <TableHead>PRICE</TableHead>
+                    <TableHead>DURATION</TableHead>
                     <TableHead>STAFF</TableHead>
                     <TableHead>EXTRAS</TableHead>
                     <TableHead className="w-[100px]">ACTIONS</TableHead>

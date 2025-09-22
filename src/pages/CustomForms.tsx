@@ -1,8 +1,9 @@
-
 import React, { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Table, 
   TableBody, 
@@ -11,7 +12,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Copy, Download } from 'lucide-react';
 import { CustomFormBuilder } from '@/components/forms/CustomFormBuilder';
 
 interface SavedForm {
@@ -29,6 +30,10 @@ const CustomForms = () => {
   const [savedForms, setSavedForms] = useState<SavedForm[]>([]);
   const [editingForm, setEditingForm] = useState<SavedForm | null>(null);
   const [viewingForm, setViewingForm] = useState<SavedForm | null>(null);
+  const [selectedForms, setSelectedForms] = useState<string[]>([]);
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Load saved forms from localStorage on component mount and when returning from builder
   React.useEffect(() => {
@@ -92,15 +97,27 @@ const CustomForms = () => {
 
   const formsToDisplay = savedForms;
   
-  const filteredForms = formsToDisplay.filter(form =>
-    form.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    form.services.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredForms = formsToDisplay.filter(form => {
+    const matchesSearch = 
+      form.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      form.services.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesService = serviceFilter === 'all' || 
+      form.services.toLowerCase().includes(serviceFilter.toLowerCase());
+    
+    return matchesSearch && matchesService;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredForms.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedForms = filteredForms.slice(startIndex, startIndex + itemsPerPage);
 
   const handleDeleteForm = (id: string) => {
     const updatedForms = savedForms.filter(form => form.id !== id);
     setSavedForms(updatedForms);
     localStorage.setItem('customForms', JSON.stringify(updatedForms));
+    setSelectedForms(prev => prev.filter(selectedId => selectedId !== id));
   };
 
   const handleDuplicateForm = (form: SavedForm) => {
@@ -139,6 +156,66 @@ const CustomForms = () => {
     setShowBuilder(false);
   };
 
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedForms(paginatedForms.map(form => form.id));
+    } else {
+      setSelectedForms([]);
+    }
+  };
+
+  const handleSelectForm = (formId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedForms(prev => [...prev, formId]);
+    } else {
+      setSelectedForms(prev => prev.filter(id => id !== formId));
+    }
+  };
+
+  // Bulk operations
+  const handleBulkDelete = () => {
+    if (selectedForms.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedForms.length} form(s)?`)) {
+      selectedForms.forEach(formId => {
+        handleDeleteForm(formId);
+      });
+      setSelectedForms([]);
+    }
+  };
+
+  const handleBulkDuplicate = () => {
+    selectedForms.forEach(formId => {
+      const form = savedForms.find(f => f.id === formId);
+      if (form) handleDuplicateForm(form);
+    });
+    setSelectedForms([]);
+  };
+
+  const handleExportToCSV = () => {
+    const headers = ['Name', 'Elements', 'Services', 'Created'];
+    const csvData = [
+      headers.join(','),
+      ...filteredForms.map((form) => [
+        `"${form.name}"`,
+        form.elements,
+        `"${form.services}"`,
+        `"${form.createdAt}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `custom-forms-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (showBuilder) {
     return (
       <Layout>
@@ -162,26 +239,70 @@ const CustomForms = () => {
               {filteredForms.length}
             </span>
           </div>
-          <Button 
-            onClick={handleNewForm}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            CREATE NEW FORM
-          </Button>
+          <div className="flex items-center space-x-3">
+            <Button variant="outline" size="sm" onClick={handleExportToCSV}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button 
+              onClick={handleNewForm}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              CREATE NEW FORM
+            </Button>
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="flex items-center space-x-4">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Quick search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search and Filters */}
+        <div className="flex items-center justify-between space-x-4">
+          <div className="flex items-center space-x-4">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <Input
+                placeholder="Search forms..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <Select value={serviceFilter} onValueChange={setServiceFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by service" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Services</SelectItem>
+                <SelectItem value="specific">Specific Services</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Bulk Actions */}
+          {selectedForms.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">
+                {selectedForms.length} selected
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkDuplicate}
+              >
+                <Copy className="w-4 h-4 mr-1" />
+                Duplicate
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkDelete}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -190,30 +311,41 @@ const CustomForms = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
-                  <input type="checkbox" className="rounded border-slate-300" />
+                  <Checkbox
+                    checked={
+                      paginatedForms.length > 0 &&
+                      paginatedForms.every(form => selectedForms.includes(form.id))
+                    }
+                    onCheckedChange={handleSelectAll}
+                  />
                 </TableHead>
                 <TableHead>NAME</TableHead>
                 <TableHead>ELEMENTS</TableHead>
                 <TableHead>SERVICES</TableHead>
-                <TableHead className="w-16"></TableHead>
+                <TableHead className="w-[100px]">ACTIONS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredForms.length === 0 ? (
+              {paginatedForms.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-12 text-slate-500">
                     {searchTerm ? 'No forms match your search criteria' : 'No forms created yet!'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredForms.map((form) => (
+                paginatedForms.map((form) => (
                   <TableRow 
                     key={form.id} 
                     className="hover:bg-slate-50 cursor-pointer"
                     onClick={() => handleViewForm(form)}
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-slate-300" />
+                      <Checkbox
+                        checked={selectedForms.includes(form.id)}
+                        onCheckedChange={(checked) => 
+                          handleSelectForm(form.id, checked as boolean)
+                        }
+                      />
                     </TableCell>
                     <TableCell className="font-medium">
                       {form.name}
@@ -263,16 +395,45 @@ const CustomForms = () => {
           </Table>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between text-sm text-slate-500">
-          <div className="flex items-center space-x-2">
-            <span>Showing {filteredForms.length} of {formsToDisplay.length} total</span>
-            <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
-              <span className="text-xs">i</span>
-            </div>
+        {/* Pagination */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredForms.length)} of {filteredForms.length} forms
+            </span>
+            <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-gray-600">per page</span>
           </div>
+
           <div className="flex items-center space-x-2">
-            <span>Need Help?</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
           </div>
         </div>
       </div>
