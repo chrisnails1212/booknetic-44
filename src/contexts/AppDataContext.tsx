@@ -238,7 +238,17 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
     const saved = localStorage.getItem('app-coupons');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Convert date strings back to Date objects
+      return parsed.map((coupon: any) => ({
+        ...coupon,
+        customDateFrom: coupon.customDateFrom ? new Date(coupon.customDateFrom) : undefined,
+        customDateTo: coupon.customDateTo ? new Date(coupon.customDateTo) : undefined,
+        createdAt: coupon.createdAt ? new Date(coupon.createdAt) : new Date()
+      }));
+    }
+    return [];
   });
   
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
