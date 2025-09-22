@@ -7,7 +7,6 @@ interface BusinessSettings {
   smsNotifications: boolean;
   cancellationCutoff: string;
   rescheduleCutoff: string;
-  adminCanOverride: boolean;
 }
 
 const defaultSettings: BusinessSettings = {
@@ -18,8 +17,7 @@ const defaultSettings: BusinessSettings = {
   emailNotifications: true,
   smsNotifications: false,
   cancellationCutoff: '24h',
-  rescheduleCutoff: '24h',
-  adminCanOverride: true
+  rescheduleCutoff: '24h'
 };
 
 export const getBusinessSettings = (): BusinessSettings => {

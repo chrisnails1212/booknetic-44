@@ -29,8 +29,7 @@ const GeneralSettings = () => {
           emailNotifications: parsed.emailNotifications ?? true,
           smsNotifications: parsed.smsNotifications ?? false,
           cancellationCutoff: parsed.cancellationCutoff || '24h',
-          rescheduleCutoff: parsed.rescheduleCutoff || '24h',
-          adminCanOverride: parsed.adminCanOverride ?? true
+          rescheduleCutoff: parsed.rescheduleCutoff || '24h'
         };
       }
     } catch (error) {
@@ -46,8 +45,7 @@ const GeneralSettings = () => {
       emailNotifications: true,
       smsNotifications: false,
       cancellationCutoff: '24h',
-      rescheduleCutoff: '24h',
-      adminCanOverride: true
+      rescheduleCutoff: '24h'
     };
   });
 
@@ -161,23 +159,10 @@ const GeneralSettings = () => {
                   </Select>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label htmlFor="adminCanOverride">Admin Override Enabled</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Allow admins to manually override these policies from their dashboard
-                  </p>
-                </div>
-                <Switch 
-                  id="adminCanOverride" 
-                  checked={settings.adminCanOverride}
-                  onCheckedChange={(checked) => setSettings({...settings, adminCanOverride: checked})}
-                />
-              </div>
               <div className="p-4 border rounded-lg bg-muted/30">
                 <p className="text-sm text-muted-foreground">
                   <strong>Note:</strong> These rules will be automatically enforced in the customer portal and booking confirmations. 
-                  Customers will see appropriate messages when attempting to cancel or reschedule outside the allowed timeframe.
+                  Admins can always override these policies manually from their dashboard when needed.
                 </p>
               </div>
             </CardContent>
