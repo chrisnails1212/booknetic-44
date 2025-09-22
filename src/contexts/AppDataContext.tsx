@@ -248,7 +248,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
           ? appointment.date 
           : (() => {
               // Parse date string as local date to avoid timezone shifts
-              const dateStr = typeof appointment.date === 'string' ? appointment.date : appointment.date.toString();
+              const dateStr = typeof appointment.date === 'string' ? appointment.date : 
+                             appointment.date ? appointment.date.toString() : new Date().toISOString().split('T')[0];
               const [year, month, day] = dateStr.split('-').map(Number);
               return new Date(year, month - 1, day);
             })()
