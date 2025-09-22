@@ -262,58 +262,58 @@ const Staff = () => {
                 {/* Role Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <Select value={advancedFilters.role} onValueChange={(value) => 
-                    setAdvancedFilters(prev => ({ ...prev, role: value }))
-                  }>
-                    <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="All roles" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All roles</SelectItem>
-                      <SelectItem value="stylist">Stylist</SelectItem>
-                      <SelectItem value="colorist">Colorist</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="receptionist">Receptionist</SelectItem>
-                      <SelectItem value="assistant">Assistant</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <Select value={advancedFilters.role || 'all'} onValueChange={(value) => 
+                  setAdvancedFilters(prev => ({ ...prev, role: value === 'all' ? '' : value }))
+                }>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="All roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    <SelectItem value="stylist">Stylist</SelectItem>
+                    <SelectItem value="colorist">Colorist</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="receptionist">Receptionist</SelectItem>
+                    <SelectItem value="assistant">Assistant</SelectItem>
+                  </SelectContent>
+                </Select>
                 </div>
 
                 {/* Department Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                  <Select value={advancedFilters.department} onValueChange={(value) => 
-                    setAdvancedFilters(prev => ({ ...prev, department: value }))
-                  }>
-                    <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="All departments" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All departments</SelectItem>
-                      <SelectItem value="hair">Hair</SelectItem>
-                      <SelectItem value="nails">Nails</SelectItem>
-                      <SelectItem value="skincare">Skincare</SelectItem>
-                      <SelectItem value="management">Management</SelectItem>
-                      <SelectItem value="reception">Reception</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <Select value={advancedFilters.department || 'all'} onValueChange={(value) => 
+                  setAdvancedFilters(prev => ({ ...prev, department: value === 'all' ? '' : value }))
+                }>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="All departments" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All departments</SelectItem>
+                    <SelectItem value="hair">Hair</SelectItem>
+                    <SelectItem value="nails">Nails</SelectItem>
+                    <SelectItem value="skincare">Skincare</SelectItem>
+                    <SelectItem value="management">Management</SelectItem>
+                    <SelectItem value="reception">Reception</SelectItem>
+                  </SelectContent>
+                </Select>
                 </div>
 
                 {/* Working Days Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Working Days</label>
-                  <Select value={advancedFilters.workingDays} onValueChange={(value) => 
-                    setAdvancedFilters(prev => ({ ...prev, workingDays: value }))
-                  }>
-                    <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="All schedules" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All schedules</SelectItem>
-                      <SelectItem value="weekdays">Weekdays only</SelectItem>
-                      <SelectItem value="weekends">Works weekends</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <Select value={advancedFilters.workingDays || 'all'} onValueChange={(value) => 
+                  setAdvancedFilters(prev => ({ ...prev, workingDays: value === 'all' ? '' : value }))
+                }>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="All schedules" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All schedules</SelectItem>
+                    <SelectItem value="weekdays">Weekdays only</SelectItem>
+                    <SelectItem value="weekends">Works weekends</SelectItem>
+                  </SelectContent>
+                </Select>
                 </div>
               </div>
 
