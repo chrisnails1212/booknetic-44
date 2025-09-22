@@ -31,7 +31,7 @@ const GeneralSettings = () => {
           cancellationCutoff: parsed.cancellationCutoff || '24h',
           rescheduleCutoff: parsed.rescheduleCutoff || '24h',
           autoConfirmBookings: parsed.autoConfirmBookings ?? false,
-          autoCompleteBookings: parsed.autoCompleteBookings ?? false
+          autoCompleteBookings: parsed.autoCompleteBookings ?? true
         };
       }
     } catch (error) {
@@ -49,7 +49,7 @@ const GeneralSettings = () => {
       cancellationCutoff: '24h',
       rescheduleCutoff: '24h',
       autoConfirmBookings: false,
-      autoCompleteBookings: false
+      autoCompleteBookings: true
     };
   });
 

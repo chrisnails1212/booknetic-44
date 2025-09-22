@@ -21,7 +21,7 @@ const defaultSettings: BusinessSettings = {
   cancellationCutoff: '24h',
   rescheduleCutoff: '24h',
   autoConfirmBookings: false,
-  autoCompleteBookings: false
+  autoCompleteBookings: true
 };
 
 export const getBusinessSettings = (): BusinessSettings => {
