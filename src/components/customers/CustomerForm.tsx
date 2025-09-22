@@ -28,8 +28,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     phone: '',
     allowLogin: true,
     image: '',
-    gender: '',
-    dateOfBirth: undefined as Date | undefined,
     note: ''
   });
 
@@ -60,8 +58,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
         const lastName = customFields.lastName || customFields['Last Name'] || customFields.lastname || '';
         const email = customFields.email || customFields['Email'] || '';
         const phone = customFields.phone || customFields['Phone'] || customFields.phoneNumber || '';
-        const gender = customFields.gender || customFields['Gender'] || '';
-        const dateOfBirth = customFields.dateOfBirth || customFields['Date of Birth'] || '';
         const note = customFields.note || customFields['Note'] || customFields.notes || '';
 
         // Only return if we have meaningful customer data (at least first name, last name, or email)
@@ -79,8 +75,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
             lastName: lastName || '',
             email: email || '',
             phone: phone || '',
-            gender: gender || '',
-            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
             note: note || ''
           };
         }
@@ -99,8 +93,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
         phone: customer.phone || '',
         allowLogin: customer.allowLogin || false,
         image: customer.image || '',
-        gender: customer.gender || '',
-        dateOfBirth: customer.dateOfBirth ? new Date(customer.dateOfBirth) : undefined,
         note: customer.note || ''
       });
     } else {
@@ -115,8 +107,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
           phone: autoFillData.phone,
           allowLogin: true,
           image: '',
-          gender: autoFillData.gender,
-          dateOfBirth: autoFillData.dateOfBirth,
           note: autoFillData.note
         });
       } else {
@@ -127,8 +117,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
           phone: '',
           allowLogin: true,
           image: '',
-          gender: '',
-          dateOfBirth: undefined,
           note: ''
         });
       }
@@ -149,8 +137,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       email: formData.email,
       phone: formData.phone,
       allowLogin: formData.allowLogin,
-      gender: formData.gender,
-      dateOfBirth: formData.dateOfBirth,
       note: formData.note
     };
 
@@ -169,8 +155,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       phone: '',
       allowLogin: true,
       image: '',
-      gender: '',
-      dateOfBirth: undefined,
       note: ''
     });
   };
@@ -280,32 +264,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
 
 
 
-          {/* Gender and Date of Birth */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Gender</Label>
-              <Select value={formData.gender} onValueChange={(value) => handleInputChange('gender', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateOfBirth" className="text-sm font-medium">Date of birth</Label>
-              <Input
-                id="dateOfBirth"
-                type="date"
-                value={formData.dateOfBirth ? format(formData.dateOfBirth, "yyyy-MM-dd") : ''}
-                onChange={(e) => handleInputChange('dateOfBirth', e.target.value ? new Date(e.target.value) : undefined)}
-                placeholder="YYYY/mm/dd"
-              />
-            </div>
-          </div>
 
           {/* Note */}
           <div className="space-y-2">

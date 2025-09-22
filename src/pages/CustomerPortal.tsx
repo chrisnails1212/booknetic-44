@@ -32,9 +32,7 @@ export default function CustomerPortal() {
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
-    gender: '',
-    dateOfBirth: ''
+    phone: ''
   });
 
   const navigate = useNavigate();
@@ -89,11 +87,7 @@ export default function CustomerPortal() {
         firstName: currentCustomer.firstName || '',
         lastName: currentCustomer.lastName || '',
         email: currentCustomer.email || '',
-        phone: currentCustomer.phone || '',
-        gender: currentCustomer.gender || '',
-        dateOfBirth: currentCustomer.dateOfBirth 
-          ? format(new Date(currentCustomer.dateOfBirth), 'yyyy-MM-dd')
-          : ''
+        phone: currentCustomer.phone || ''
       });
     }
   }, [currentCustomer]);
@@ -142,9 +136,7 @@ export default function CustomerPortal() {
       firstName: profileForm.firstName.trim(),
       lastName: profileForm.lastName.trim(),
       email: profileForm.email.trim(),
-      phone: profileForm.phone.trim(),
-      gender: profileForm.gender.toLowerCase(),
-      dateOfBirth: profileForm.dateOfBirth ? new Date(profileForm.dateOfBirth) : undefined
+      phone: profileForm.phone.trim()
     };
 
     updateCustomer(currentCustomer.id, updatedData);
@@ -162,11 +154,7 @@ export default function CustomerPortal() {
         firstName: currentCustomer.firstName || '',
         lastName: currentCustomer.lastName || '',
         email: currentCustomer.email || '',
-        phone: currentCustomer.phone || '',
-        gender: currentCustomer.gender || '',
-        dateOfBirth: currentCustomer.dateOfBirth 
-          ? format(new Date(currentCustomer.dateOfBirth), 'yyyy-MM-dd')
-          : ''
+        phone: currentCustomer.phone || ''
       });
     }
     setIsEditingProfile(false);
@@ -709,44 +697,6 @@ export default function CustomerPortal() {
                           />
                         ) : (
                           <div className="p-3 bg-muted rounded">{currentCustomer?.phone || 'Not provided'}</div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="gender">Gender</Label>
-                        {isEditingProfile ? (
-                          <select
-                            id="gender"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            value={profileForm.gender}
-                            onChange={(e) => handleProfileInputChange('gender', e.target.value)}
-                          >
-                            <option value="">Select gender</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                            <option value="prefer-not-to-say">Prefer not to say</option>
-                          </select>
-                        ) : (
-                          <div className="p-3 bg-muted rounded capitalize">{currentCustomer?.gender || 'Not specified'}</div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                        {isEditingProfile ? (
-                          <Input
-                            id="dateOfBirth"
-                            type="date"
-                            value={profileForm.dateOfBirth}
-                            onChange={(e) => handleProfileInputChange('dateOfBirth', e.target.value)}
-                            max={format(new Date(), 'yyyy-MM-dd')}
-                          />
-                        ) : (
-                          <div className="p-3 bg-muted rounded">
-                            {currentCustomer?.dateOfBirth 
-                              ? format(new Date(currentCustomer.dateOfBirth), 'MMM dd, yyyy')
-                              : 'Not provided'
-                            }
-                          </div>
                         )}
                       </div>
                     </div>
