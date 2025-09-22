@@ -16,11 +16,10 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
-import { PortalSecurity } from '@/components/portal/PortalSecurity';
 
 
 export default function CustomerPortal() {
-  const [showPortalSecurity, setShowPortalSecurity] = useState(true);
+  const [customerEmail, setCustomerEmail] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
   const [customerAppointments, setCustomerAppointments] = useState<Appointment[]>([]);
@@ -54,11 +53,22 @@ export default function CustomerPortal() {
   const { formatPrice } = useCurrency();
 
 
-  // Authentication through Portal Security component
-  const handleAuthenticated = (customer: Customer) => {
+  // Authentication
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const customer = customers.find(c => 
+      c.email.toLowerCase() === customerEmail.toLowerCase() && c.allowLogin
+    );
+    
+    if (!customer) {
+      toast.error('Email not found or login not allowed. Please contact the business.');
+      return;
+    }
+
+
     setCurrentCustomer(customer);
     setIsAuthenticated(true);
-    setShowPortalSecurity(false);
     setCustomerAppointments(getCustomerAppointments(customer.id));
     toast.success('Welcome back!');
   };
@@ -66,7 +76,7 @@ export default function CustomerPortal() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentCustomer(null);
-    setShowPortalSecurity(true);
+    setCustomerEmail('');
     setCustomerAppointments([]);
     setEditingAppointment(null);
     setIsEditingProfile(false);
@@ -322,27 +332,46 @@ export default function CustomerPortal() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {showPortalSecurity ? (
-          <PortalSecurity
-            isOpen={showPortalSecurity}
-            onAuthenticated={handleAuthenticated}
-            onClose={() => setShowPortalSecurity(false)}
-            customers={customers}
-          />
-        ) : !isAuthenticated ? (
+        {!isAuthenticated ? (
+          // Login Form
           <div className="max-w-md mx-auto space-y-6 py-8">
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold">Portal Access Required</h2>
-              <p className="text-muted-foreground mt-2">
-                Please complete the security verification to continue
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-semibold">Access Your Account</h2>
+              <p className="text-muted-foreground">
+                Enter your email to view and manage your appointments
               </p>
-              <Button 
-                onClick={() => setShowPortalSecurity(true)}
-                className="mt-4"
-              >
-                Access Portal
-              </Button>
             </div>
+            
+            <Card>
+              <CardContent className="p-6">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      required
+                    />
+                  </div>
+                  
+                  
+                  <Button type="submit" className="w-full">
+                    Access Portal
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Only customers with login access enabled can use this portal. 
+                Contact us if you need access.
+              </AlertDescription>
+            </Alert>
           </div>
         ) : (
           // Authenticated Customer Dashboard

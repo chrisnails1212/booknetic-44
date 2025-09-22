@@ -13,9 +13,6 @@ export interface Customer {
   allowLogin: boolean;
   image?: string;
   appointmentHistory: string[];
-  portalPin?: string;
-  portalPassword?: string;
-  portalSecurityLevel?: 'basic' | 'enhanced' | 'maximum';
 }
 
 export interface Staff {

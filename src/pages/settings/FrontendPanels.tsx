@@ -122,55 +122,6 @@ const FrontendPanels = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Portal Security Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="enablePortalLock">Enable Portal Security</Label>
-                <Switch 
-                  id="enablePortalLock" 
-                  defaultChecked={true}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="enablePinAccess">Enable PIN Code Access</Label>
-                <Switch 
-                  id="enablePinAccess" 
-                  defaultChecked={true}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="enablePasswordAccess">Enable Password Access</Label>
-                <Switch 
-                  id="enablePasswordAccess" 
-                  defaultChecked={true}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="maxAttempts">Maximum Login Attempts</Label>
-                <Input 
-                  id="maxAttempts" 
-                  type="number"
-                  defaultValue="3"
-                  min="1"
-                  max="10"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lockoutDuration">Lockout Duration (minutes)</Label>
-                <Input 
-                  id="lockoutDuration" 
-                  type="number"
-                  defaultValue="15"
-                  min="5"
-                  max="60"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           <div className="flex justify-end space-x-4">
             <Button variant="outline" onClick={() => navigate('/settings')}>
               Cancel

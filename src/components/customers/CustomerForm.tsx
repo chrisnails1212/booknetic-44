@@ -31,10 +31,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     image: '',
     gender: '',
     dateOfBirth: undefined as Date | undefined,
-    note: '',
-    portalPin: '',
-    portalPassword: '',
-    portalSecurityLevel: 'basic' as 'basic' | 'enhanced' | 'maximum'
+    note: ''
   });
 
   const [phoneError, setPhoneError] = useState('');
@@ -107,10 +104,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
         image: customer.image || '',
         gender: customer.gender || '',
         dateOfBirth: customer.dateOfBirth ? new Date(customer.dateOfBirth) : undefined,
-        note: customer.note || '',
-        portalPin: customer.portalPin || '',
-        portalPassword: customer.portalPassword || '',
-        portalSecurityLevel: customer.portalSecurityLevel || 'basic'
+        note: customer.note || ''
       });
     } else {
       // Try to auto-fill from recent form submissions
@@ -126,10 +120,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
           image: '',
           gender: autoFillData.gender,
           dateOfBirth: autoFillData.dateOfBirth,
-          note: autoFillData.note,
-          portalPin: '',
-          portalPassword: '',
-          portalSecurityLevel: 'basic'
+          note: autoFillData.note
         });
       } else {
         setFormData({
@@ -141,10 +132,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
           image: '',
           gender: '',
           dateOfBirth: undefined,
-          note: '',
-          portalPin: '',
-          portalPassword: '',
-          portalSecurityLevel: 'basic'
+          note: ''
         });
       }
     }
@@ -184,10 +172,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       allowLogin: formData.allowLogin,
       gender: formData.gender,
       dateOfBirth: formData.dateOfBirth,
-      note: formData.note,
-      portalPin: formData.portalPin,
-      portalPassword: formData.portalPassword,
-      portalSecurityLevel: formData.portalSecurityLevel
+      note: formData.note
     };
 
     if (customer) {
@@ -207,10 +192,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       image: '',
       gender: '',
       dateOfBirth: undefined,
-      note: '',
-      portalPin: '',
-      portalPassword: '',
-      portalSecurityLevel: 'basic'
+      note: ''
     });
   };
 
@@ -367,57 +349,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
               onChange={(e) => handleInputChange('note', e.target.value)}
             />
           </div>
-
-          {/* Portal Security Settings */}
-          {formData.allowLogin && (
-            <div className="space-y-4 p-4 bg-blue-50 rounded-lg border">
-              <h4 className="font-medium text-blue-900">Portal Security Settings</h4>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="portalPin" className="text-sm font-medium">Portal PIN (4 digits)</Label>
-                  <Input
-                    id="portalPin"
-                    type="password"
-                    value={formData.portalPin}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '');
-                      if (value.length <= 4) {
-                        handleInputChange('portalPin', value);
-                      }
-                    }}
-                    placeholder="••••"
-                    maxLength={4}
-                    className="text-center tracking-widest"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="portalPassword" className="text-sm font-medium">Portal Password</Label>
-                  <Input
-                    id="portalPassword"
-                    type="password"
-                    value={formData.portalPassword}
-                    onChange={(e) => handleInputChange('portalPassword', e.target.value)}
-                    placeholder="Enter portal password"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Security Level</Label>
-                <Select value={formData.portalSecurityLevel} onValueChange={(value) => handleInputChange('portalSecurityLevel', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select security level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Basic (Email only)</SelectItem>
-                    <SelectItem value="enhanced">Enhanced (Email + PIN/Password)</SelectItem>
-                    <SelectItem value="maximum">Maximum (All methods required)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
 
           {/* Customer Stats (for existing customers) */}
           {customer && (
