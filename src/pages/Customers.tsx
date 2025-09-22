@@ -78,7 +78,7 @@ export default function Customers() {
         customer.email,
         customer.phone,
         customer.gender,
-        customer.dateOfBirth && !isNaN(new Date(customer.dateOfBirth).getTime()) ? format(new Date(customer.dateOfBirth), 'yyyy-MM-dd') : '',
+        customer.dateOfBirth ? format(new Date(customer.dateOfBirth), 'yyyy-MM-dd') : '',
         customer.allowLogin ? 'Yes' : 'No',
         customer.note,
         appointmentCount.toString(),
@@ -151,7 +151,7 @@ export default function Customers() {
             email: email,
             phone: phone,
             gender: gender.toLowerCase(),
-            dateOfBirth: dateOfBirth && dateOfBirth.trim() ? new Date(dateOfBirth) : undefined,
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
             allowLogin: allowLogin.toLowerCase() === 'yes' || allowLogin.toLowerCase() === 'true',
             note: note
           };
@@ -292,7 +292,7 @@ export default function Customers() {
                       </TableCell>
                       <TableCell className="capitalize">{customer.gender}</TableCell>
                       <TableCell>
-                        {customer.dateOfBirth && !isNaN(new Date(customer.dateOfBirth).getTime())
+                        {customer.dateOfBirth 
                           ? format(new Date(customer.dateOfBirth), 'MMM dd, yyyy')
                           : '-'
                         }

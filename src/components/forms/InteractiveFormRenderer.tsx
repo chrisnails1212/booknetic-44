@@ -13,8 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { ConditionalMessage } from './ConditionalMessage';
 import { DynamicFieldRenderer } from './DynamicFieldRenderer';
 import { ConditionalRule, FormElement } from '@/types/formTypes';
-import { PhoneInput } from '@/components/ui/phone-input';
-import { validateEmail } from '@/utils/emailValidation';
 
 interface InteractiveFormRendererProps {
   element: FormElement;
@@ -41,7 +39,6 @@ export const InteractiveFormRenderer = ({
   const [isFormDisabled, setIsFormDisabled] = useState(false);
   const [visible, setVisible] = useState(true);
   const [required, setRequired] = useState(element.required || false);
-  const [emailError, setEmailError] = useState<string>('');
   
   // Check conditional logic
   const evaluateConditions = () => {
@@ -521,28 +518,17 @@ export const InteractiveFormRenderer = ({
               {element.label}
               {required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <PhoneInput
+            <Input
+              type="tel"
               value={value || ''}
-              onChange={(phoneValue) => onChange(phoneValue)}
-              placeholder={element.placeholder || 'Enter phone number'}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={element.placeholder || '+1 (555) 123-4567'}
               className="w-full"
             />
           </div>
         );
 
       case 'email':
-        const handleEmailChange = (newValue: string) => {
-          onChange(newValue);
-          
-          // Validate email format if there's a value
-          if (newValue && newValue.trim()) {
-            const validation = validateEmail(newValue.trim());
-            setEmailError(validation.isValid ? '' : validation.error || '');
-          } else {
-            setEmailError('');
-          }
-        };
-
         return (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-slate-700">
@@ -552,13 +538,10 @@ export const InteractiveFormRenderer = ({
             <Input
               type="email"
               value={value || ''}
-              onChange={(e) => handleEmailChange(e.target.value)}
+              onChange={(e) => onChange(e.target.value)}
               placeholder={element.placeholder || 'example@email.com'}
-              className={`w-full ${emailError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              className="w-full"
             />
-            {emailError && (
-              <p className="text-sm text-red-500">{emailError}</p>
-            )}
           </div>
         );
 

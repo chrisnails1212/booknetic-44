@@ -5,9 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PhoneInput } from '@/components/ui/phone-input';
 import { ConditionalRule } from '@/types/formTypes';
-import { validateEmail } from '@/utils/emailValidation';
 
 interface DynamicFieldRendererProps {
   dynamicField: NonNullable<ConditionalRule['dynamicField']>;
@@ -16,7 +14,6 @@ interface DynamicFieldRendererProps {
 }
 
 export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicFieldRendererProps) => {
-  const [emailError, setEmailError] = React.useState<string>('');
   const renderField = () => {
     switch (dynamicField.type) {
       case 'text-input':
@@ -122,18 +119,6 @@ export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicF
         );
 
       case 'email':
-        const handleEmailChange = (newValue: string) => {
-          onChange(newValue);
-          
-          // Validate email format if there's a value
-          if (newValue && newValue.trim()) {
-            const validation = validateEmail(newValue.trim());
-            setEmailError(validation.isValid ? '' : validation.error || '');
-          } else {
-            setEmailError('');
-          }
-        };
-
         return (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-slate-700">
@@ -143,13 +128,10 @@ export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicF
             <Input
               type="email"
               value={value || ''}
-              onChange={(e) => handleEmailChange(e.target.value)}
+              onChange={(e) => onChange(e.target.value)}
               placeholder={dynamicField.placeholder || 'example@email.com'}
-              className={`w-full ${emailError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              className="w-full"
             />
-            {emailError && (
-              <p className="text-sm text-red-500">{emailError}</p>
-            )}
           </div>
         );
 
@@ -160,10 +142,11 @@ export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicF
               {dynamicField.label}
               {dynamicField.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <PhoneInput
+            <Input
+              type="tel"
               value={value || ''}
-              onChange={(phoneValue) => onChange(phoneValue)}
-              placeholder={dynamicField.placeholder || 'Enter phone number'}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={dynamicField.placeholder || '+1 (555) 123-4567'}
               className="w-full"
             />
           </div>

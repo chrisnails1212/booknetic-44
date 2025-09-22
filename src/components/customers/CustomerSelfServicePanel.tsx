@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 import { useAppData, Customer, Appointment } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { toast } from 'sonner';
-import { validateEmail } from '@/utils/emailValidation';
 interface CustomerSelfServicePanelProps {
   trigger?: React.ReactNode;
   className?: string;
@@ -41,7 +40,6 @@ export const CustomerSelfServicePanel = ({
     gender: '',
     dateOfBirth: ''
   });
-  const [emailError, setEmailError] = useState('');
   const {
     customers,
     appointments,
@@ -110,10 +108,10 @@ export const CustomerSelfServicePanel = ({
       return;
     }
 
-    // Email validation using the utility function
-    const emailValidation = validateEmail(profileForm.email.trim());
-    if (!emailValidation.isValid) {
-      toast.error(emailValidation.error || 'Please enter a valid email address');
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileForm.email)) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
