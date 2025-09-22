@@ -232,6 +232,11 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       ...prev,
       [field]: value
     }));
+
+    // Save Portal Lock changes immediately to localStorage
+    if (field === 'portalLockEnabled' && formData.email) {
+      updatePortalLockSettings(formData.email, value);
+    }
   };
 
   const customerAppointments = customer ? getCustomerAppointments(customer.id) : [];
