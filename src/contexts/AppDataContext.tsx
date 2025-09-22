@@ -680,7 +680,31 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       customerId = autoCreateCustomerFromAppointment(appointment);
     }
     
-    const newAppointment: Appointment = { ...appointment, id, customerId };
+    // Get business settings for auto-approve logic
+    const businessSettings = (() => {
+      try {
+        const stored = localStorage.getItem('businessSettings');
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.error('Error loading business settings:', error);
+      }
+      return {};
+    })();
+    
+    // Auto-approve logic: if enabled, new bookings go from Pending to Confirmed
+    let initialStatus = appointment.status || 'Pending';
+    if (businessSettings.autoApproveBookings && initialStatus === 'Pending') {
+      initialStatus = 'Confirmed';
+    }
+    
+    const newAppointment: Appointment = { 
+      ...appointment, 
+      id, 
+      customerId,
+      status: initialStatus
+    };
     setAppointments(prev => [...prev, newAppointment]);
     
     // Update customer appointment history
@@ -920,26 +944,55 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // Auto-complete past appointments
+  // Auto-complete past appointments and handle auto-booking rules
   useEffect(() => {
-    const markPastAppointments = () => {
+    const processBookingRules = () => {
       const now = new Date();
       let hasChanges = false;
 
+      // Get business settings for auto-booking rules
+      const businessSettings = (() => {
+        try {
+          const stored = localStorage.getItem('businessSettings');
+          if (stored) {
+            return JSON.parse(stored);
+          }
+        } catch (error) {
+          console.error('Error loading business settings:', error);
+        }
+        return {};
+      })();
+
       const updatedAppointments = appointments.map(appointment => {
-        // Skip appointments that are already in final states
+        // Skip appointments that are already in final states for completion
         const finalStatuses = ['Cancelled', 'Rejected', 'Completed', 'No-show', 'Emergency'];
-        if (finalStatuses.includes(appointment.status)) {
-          return appointment;
+        
+        // Auto-Complete Logic (only if enabled)
+        if (businessSettings.autoCompleteBookings !== false) { // Default is true
+          if (appointment.status === 'Confirmed' || appointment.status === 'Rescheduled') {
+            const endDateTime = getAppointmentEndDateTime(appointment);
+            
+            if (endDateTime && endDateTime <= now) {
+              hasChanges = true;
+              return { ...appointment, status: 'Completed' as const };
+            }
+          }
         }
 
-        // Only auto-complete Confirmed and Rescheduled appointments
-        if (appointment.status === 'Confirmed' || appointment.status === 'Rescheduled') {
-          const endDateTime = getAppointmentEndDateTime(appointment);
-          
-          if (endDateTime && endDateTime <= now) {
-            hasChanges = true;
-            return { ...appointment, status: 'Completed' as const };
+        // Auto-No-Show Detection Logic (only if enabled)
+        if (businessSettings.autoNoShowDetection && !finalStatuses.includes(appointment.status)) {
+          if (appointment.status === 'Confirmed' || appointment.status === 'Rescheduled') {
+            const appointmentDateTime = new Date(appointment.date);
+            const [hours, minutes] = appointment.time.split(':').map(Number);
+            appointmentDateTime.setHours(hours, minutes, 0, 0);
+            
+            const noShowHours = businessSettings.noShowHours || 2;
+            const noShowDeadline = new Date(appointmentDateTime.getTime() + (noShowHours * 60 * 60 * 1000));
+            
+            if (now >= noShowDeadline) {
+              hasChanges = true;
+              return { ...appointment, status: 'No-show' as const };
+            }
           }
         }
 
@@ -952,11 +1005,11 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // Mark past appointments immediately
-    markPastAppointments();
+    // Process booking rules immediately
+    processBookingRules();
 
     // Set up interval to check every minute
-    const interval = setInterval(markPastAppointments, 60000);
+    const interval = setInterval(processBookingRules, 60000);
 
     // Cleanup interval on unmount
     return () => clearInterval(interval);

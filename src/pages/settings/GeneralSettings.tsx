@@ -29,7 +29,11 @@ const GeneralSettings = () => {
           emailNotifications: parsed.emailNotifications ?? true,
           smsNotifications: parsed.smsNotifications ?? false,
           cancellationCutoff: parsed.cancellationCutoff || '24h',
-          rescheduleCutoff: parsed.rescheduleCutoff || '24h'
+          rescheduleCutoff: parsed.rescheduleCutoff || '24h',
+          autoApproveBookings: parsed.autoApproveBookings ?? false,
+          autoCompleteBookings: parsed.autoCompleteBookings ?? true,
+          autoNoShowDetection: parsed.autoNoShowDetection ?? false,
+          noShowHours: parsed.noShowHours || 2
         };
       }
     } catch (error) {
@@ -45,7 +49,11 @@ const GeneralSettings = () => {
       emailNotifications: true,
       smsNotifications: false,
       cancellationCutoff: '24h',
-      rescheduleCutoff: '24h'
+      rescheduleCutoff: '24h',
+      autoApproveBookings: false,
+      autoCompleteBookings: true,
+      autoNoShowDetection: false,
+      noShowHours: 2
     };
   });
 
@@ -163,6 +171,87 @@ const GeneralSettings = () => {
                 <p className="text-sm text-muted-foreground">
                   <strong>Note:</strong> These rules will be automatically enforced in the customer portal and booking confirmations. 
                   Admins can always override these policies manually from their dashboard when needed.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Auto-Booking Rules</CardTitle>
+              <CardDescription>
+                Configure automatic booking status changes to streamline your appointment management.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="autoApproveBookings">Auto-Approve Bookings</Label>
+                    <p className="text-sm text-muted-foreground">
+                      New bookings instantly go from Pending → Approved
+                    </p>
+                  </div>
+                  <Switch 
+                    id="autoApproveBookings" 
+                    checked={settings.autoApproveBookings}
+                    onCheckedChange={(checked) => setSettings({...settings, autoApproveBookings: checked})}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="autoCompleteBookings">Auto-Complete Bookings</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Mark approved bookings as Completed after end time passes
+                    </p>
+                  </div>
+                  <Switch 
+                    id="autoCompleteBookings" 
+                    checked={settings.autoCompleteBookings}
+                    onCheckedChange={(checked) => setSettings({...settings, autoCompleteBookings: checked})}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="autoNoShowDetection">Auto-No-Show Detection</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Mark as No-show if not completed/checked-in within specified hours
+                      </p>
+                    </div>
+                    <Switch 
+                      id="autoNoShowDetection" 
+                      checked={settings.autoNoShowDetection}
+                      onCheckedChange={(checked) => setSettings({...settings, autoNoShowDetection: checked})}
+                    />
+                  </div>
+                  
+                  {settings.autoNoShowDetection && (
+                    <div className="grid gap-2 ml-4">
+                      <Label htmlFor="noShowHours">Mark as no-show after</Label>
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          id="noShowHours" 
+                          type="number"
+                          min="1"
+                          max="72"
+                          value={settings.noShowHours}
+                          onChange={(e) => setSettings({...settings, noShowHours: parseInt(e.target.value) || 2})}
+                          className="w-20"
+                        />
+                        <span className="text-sm text-muted-foreground">hours after appointment time</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Note:</strong> Auto-booking rules help reduce manual administrative work. 
+                  Admins can always override these automated status changes manually when needed.
                 </p>
               </div>
             </CardContent>
