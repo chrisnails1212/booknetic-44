@@ -470,7 +470,7 @@ const BookingPage = () => {
       setAvailableGiftcard(giftcard);
       toast({
         title: "Gift Card Applied!",
-        description: `$${giftcard.leftover.toFixed(2)} gift card balance applied.`,
+        description: `${currency.symbol}${giftcard.leftover.toFixed(2)} gift card balance applied.`,
       });
     } else {
       toast({
