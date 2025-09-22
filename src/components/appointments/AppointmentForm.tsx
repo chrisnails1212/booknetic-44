@@ -276,12 +276,18 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
         ? appointment.date 
         : new Date(appointment.date);
       
+      // Format date as YYYY-MM-DD without timezone conversion
+      const year = appointmentDate.getFullYear();
+      const month = String(appointmentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(appointmentDate.getDate()).padStart(2, '0');
+      const localDateString = `${year}-${month}-${day}`;
+      
       setAppointmentData({
         locationId: appointment.locationId,
         serviceId: appointment.serviceId,
         staffId: appointment.staffId,
         customerId: appointment.customerId,
-        date: appointmentDate.toISOString().split('T')[0],
+        date: localDateString,
         time: convertTo24Hour(appointment.time),
         status: appointment.status,
         notes: appointment.notes || '',
@@ -331,9 +337,18 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
       setDynamicFieldValues(dynamicFields);
     } else if (initialDate || initialTime) {
       // Set initial date and time for new appointments created from calendar clicks
+      // Format initial date as YYYY-MM-DD without timezone conversion
+      let localDateString = '';
+      if (initialDate) {
+        const year = initialDate.getFullYear();
+        const month = String(initialDate.getMonth() + 1).padStart(2, '0');
+        const day = String(initialDate.getDate()).padStart(2, '0');
+        localDateString = `${year}-${month}-${day}`;
+      }
+      
       setAppointmentData(prev => ({
         ...prev,
-        date: initialDate ? initialDate.toISOString().split('T')[0] : prev.date,
+        date: localDateString || prev.date,
         time: initialTime || prev.time
       }));
     }

@@ -238,7 +238,15 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     const saved = localStorage.getItem('app-appointments');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Convert date strings back to Date objects
+      return parsed.map((appointment: any) => ({
+        ...appointment,
+        date: new Date(appointment.date)
+      }));
+    }
+    return [];
   });
   
   const [giftcards, setGiftcards] = useState<Giftcard[]>(() => {
