@@ -200,7 +200,7 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-            <div className="flex-1 px-6 py-6 space-y-6 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
               {/* Name and Amount Row */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
