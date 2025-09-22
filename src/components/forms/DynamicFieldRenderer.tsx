@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PhoneInput } from '@/components/ui/phone-input';
 import { ConditionalRule } from '@/types/formTypes';
 
 interface DynamicFieldRendererProps {
@@ -143,9 +142,11 @@ export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicF
               {dynamicField.label}
               {dynamicField.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <PhoneInput
+            <Input
+              type="tel"
               value={value || ''}
-              onChange={(val) => onChange(val)}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={dynamicField.placeholder || '+1 (555) 123-4567'}
               className="w-full"
             />
           </div>
