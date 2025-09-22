@@ -12,10 +12,11 @@ import { CalendarIcon, Plus, X, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppData, Customer } from '@/contexts/AppDataContext';
-import PhoneInput from 'react-phone-number-input';
-import { isValidPhoneNumber, getCountryCallingCode } from 'libphonenumber-js';
-import { detectUserCountry } from '@/utils/countryDetection';
-import 'react-phone-number-input/style.css';
+// Temporarily removing phone input to debug QueryClientProvider issue
+// import PhoneInput from 'react-phone-number-input';
+// import { isValidPhoneNumber, getCountryCallingCode } from 'libphonenumber-js';
+// import { detectUserCountry } from '@/utils/countryDetection';
+// import 'react-phone-number-input/style.css';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     firstName: '',
     lastName: '',
     email: '',
-    phone: '' as string | undefined,
+    phone: '',
     allowLogin: true,
     image: '',
     gender: '',
@@ -37,7 +38,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
   });
 
   const [phoneError, setPhoneError] = useState('');
-  const [defaultCountry, setDefaultCountry] = useState<string>('US');
+  // const [defaultCountry, setDefaultCountry] = useState<string>('US');
 
   const { addCustomer, updateCustomer, deleteCustomer, getCustomerAppointments, appointments, customers } = useAppData();
 
@@ -95,7 +96,8 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     return null;
   };
 
-  // Auto-detect user's country on component mount
+  // Auto-detect user's country on component mount - temporarily disabled
+  /*
   useEffect(() => {
     const detectCountry = async () => {
       const country = await detectUserCountry();
@@ -105,6 +107,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     };
     detectCountry();
   }, []);
+  */
 
   useEffect(() => {
     if (customer) {
@@ -159,18 +162,20 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       return;
     }
 
-    // Validate phone number if provided
+    // Temporarily disable phone validation
+    /*
     if (formData.phone && !isValidPhoneNumber(formData.phone)) {
       setPhoneError('Please enter a valid phone number');
       return;
     }
     setPhoneError('');
+    */
 
     const customerData = {
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
-      phone: formData.phone || '', // Convert undefined to empty string
+      phone: formData.phone,
       allowLogin: formData.allowLogin,
       gender: formData.gender,
       dateOfBirth: formData.dateOfBirth,
@@ -189,7 +194,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       firstName: '',
       lastName: '',
       email: '',
-      phone: undefined,
+      phone: '',
       allowLogin: true,
       image: '',
       gender: '',
@@ -282,17 +287,14 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
-              <PhoneInput
-                international
-                countryCallingCodeEditable={false}
-                defaultCountry={defaultCountry as any}
+              <Input
+                id="phone"
+                placeholder="(201) 555-0123"
                 value={formData.phone}
-                onChange={(value) => {
-                  handleInputChange('phone', value);
+                onChange={(e) => {
+                  handleInputChange('phone', e.target.value);
                   setPhoneError('');
                 }}
-                className="phone-input"
-                placeholder="Enter phone number"
               />
               {phoneError && (
                 <p className="text-sm text-red-500">{phoneError}</p>

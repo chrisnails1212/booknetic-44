@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -40,7 +41,12 @@ import CustomerPortal from "./pages/CustomerPortal";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+console.log('Creating App component, React:', React);
+console.log('QueryClient created:', queryClient);
+
+const App = () => {
+  console.log('Rendering App component');
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <CurrencyProvider>
@@ -90,6 +96,7 @@ const App = () => (
       </CurrencyProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
