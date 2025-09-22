@@ -7,10 +7,6 @@ interface BusinessSettings {
   smsNotifications: boolean;
   cancellationCutoff: string;
   rescheduleCutoff: string;
-  autoApproveBookings: boolean;
-  autoCompleteBookings: boolean;
-  autoNoShowDetection: boolean;
-  noShowHours: number;
 }
 
 const defaultSettings: BusinessSettings = {
@@ -21,11 +17,7 @@ const defaultSettings: BusinessSettings = {
   emailNotifications: true,
   smsNotifications: false,
   cancellationCutoff: '24h',
-  rescheduleCutoff: '24h',
-  autoApproveBookings: false,
-  autoCompleteBookings: true,
-  autoNoShowDetection: false,
-  noShowHours: 2
+  rescheduleCutoff: '24h'
 };
 
 export const getBusinessSettings = (): BusinessSettings => {
