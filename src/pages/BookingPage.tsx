@@ -1803,7 +1803,7 @@ const BookingPage = () => {
                   <p 
                     className="text-3xl font-bold"
                     style={{ color: theme.completedColor }}
-                  >${finalTotal.toFixed(2)}</p>
+                  >{currency.symbol}{finalTotal.toFixed(2)}</p>
                 </div>
               </div>
             </div>
