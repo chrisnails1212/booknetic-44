@@ -123,8 +123,8 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
   useEffect(() => {
     if (customer) {
       const portalLockSettings = getPortalLockSettings(customer.email);
-      // Default to enabled if customer has set up portal lock password
-      const defaultPortalLockEnabled = hasCustomerSetPortalLockPassword(customer.email) ? true : portalLockSettings.enabled;
+      // Use saved setting from localStorage, or default to enabled if customer has password set up
+      const defaultPortalLockEnabled = portalLockSettings.enabled !== undefined ? portalLockSettings.enabled : hasCustomerSetPortalLockPassword(customer.email);
       
       setFormData({
         firstName: customer.firstName || '',
