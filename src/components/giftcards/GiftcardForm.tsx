@@ -46,7 +46,7 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
         usageLimit: giftcard.usageLimit || 'no-limit',
         oncePer: giftcard.oncePer || 'customer',
         isActive: giftcard.isActive ?? true,
-        expiresAt: giftcard.expiresAt ? giftcard.expiresAt.toISOString().split('T')[0] : ''
+        expiresAt: giftcard.expiresAt ? (giftcard.expiresAt instanceof Date ? giftcard.expiresAt.toISOString().split('T')[0] : new Date(giftcard.expiresAt).toISOString().split('T')[0]) : ''
       });
     } else {
       setFormData({

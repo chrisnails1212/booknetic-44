@@ -243,7 +243,16 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   
   const [giftcards, setGiftcards] = useState<Giftcard[]>(() => {
     const saved = localStorage.getItem('app-giftcards');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Convert date strings back to Date objects
+      return parsed.map((giftcard: any) => ({
+        ...giftcard,
+        createdAt: new Date(giftcard.createdAt),
+        expiresAt: giftcard.expiresAt ? new Date(giftcard.expiresAt) : undefined
+      }));
+    }
+    return [];
   });
   
   const [taxes, setTaxes] = useState<Tax[]>(() => {
