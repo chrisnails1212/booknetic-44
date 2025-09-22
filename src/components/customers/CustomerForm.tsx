@@ -13,6 +13,8 @@ import { CalendarIcon, Plus, X, Eye, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppData, Customer } from '@/contexts/AppDataContext';
+import { InternationalPhoneInput } from '@/components/ui/international-phone-input';
+import { EmailInput } from '@/components/ui/email-input';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -293,29 +295,21 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
           </div>
 
           {/* Email and Phone */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="example@gmail.com"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
-              <Input
-                id="phone"
-                placeholder="(201) 555-0123"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-              />
-            </div>
+          <div className="space-y-4">
+            <EmailInput
+              label="Email"
+              value={formData.email}
+              onChange={(value) => handleInputChange('email', value)}
+              placeholder="example@gmail.com"
+              required
+              className="w-full"
+            />
+            <InternationalPhoneInput
+              label="Phone"
+              value={formData.phone}
+              onChange={(value) => handleInputChange('phone', value)}
+              className="w-full"
+            />
           </div>
 
           {/* Allow Login Toggle */}
