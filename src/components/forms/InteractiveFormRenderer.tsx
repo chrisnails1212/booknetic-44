@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Link, Download, Eye, X } from 'lucide-react';
 import { createBlobFromBase64, SerializableFile } from '@/utils/fileHelper';
 import { useToast } from '@/hooks/use-toast';
@@ -518,11 +519,9 @@ export const InteractiveFormRenderer = ({
               {element.label}
               {required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <Input
-              type="tel"
+            <PhoneInput
               value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={element.placeholder || '+1 (555) 123-4567'}
+              onChange={(val) => onChange(val)}
               className="w-full"
             />
           </div>
