@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,10 @@ import { CalendarIcon, Plus, X, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppData, Customer } from '@/contexts/AppDataContext';
+import PhoneInput from 'react-phone-number-input';
+import { isValidPhoneNumber, getCountryCallingCode } from 'libphonenumber-js';
+import { detectUserCountry } from '@/utils/countryDetection';
+import 'react-phone-number-input/style.css';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -25,7 +28,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
+    phone: '' as string | undefined,
     allowLogin: true,
     image: '',
     gender: '',
@@ -33,8 +36,10 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     note: ''
   });
 
-  const { addCustomer, updateCustomer, deleteCustomer, getCustomerAppointments, appointments, customers } = useAppData();
+  const [phoneError, setPhoneError] = useState('');
+  const [defaultCountry, setDefaultCountry] = useState<string>('US');
 
+  const { addCustomer, updateCustomer, deleteCustomer, getCustomerAppointments, appointments, customers } = useAppData();
 
   // Function to auto-fill form from recent "First Visit Customer Form" responses
   const getAutoFillDataFromFirstVisitForm = () => {
@@ -90,6 +95,17 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     return null;
   };
 
+  // Auto-detect user's country on component mount
+  useEffect(() => {
+    const detectCountry = async () => {
+      const country = await detectUserCountry();
+      if (country) {
+        setDefaultCountry(country);
+      }
+    };
+    detectCountry();
+  }, []);
+
   useEffect(() => {
     if (customer) {
       setFormData({
@@ -143,11 +159,18 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       return;
     }
 
+    // Validate phone number if provided
+    if (formData.phone && !isValidPhoneNumber(formData.phone)) {
+      setPhoneError('Please enter a valid phone number');
+      return;
+    }
+    setPhoneError('');
+
     const customerData = {
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
-      phone: formData.phone,
+      phone: formData.phone || '', // Convert undefined to empty string
       allowLogin: formData.allowLogin,
       gender: formData.gender,
       dateOfBirth: formData.dateOfBirth,
@@ -166,7 +189,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       firstName: '',
       lastName: '',
       email: '',
-      phone: '',
+      phone: undefined,
       allowLogin: true,
       image: '',
       gender: '',
@@ -259,12 +282,21 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
-              <Input
-                id="phone"
-                placeholder="(201) 555-0123"
+              <PhoneInput
+                international
+                countryCallingCodeEditable={false}
+                defaultCountry={defaultCountry as any}
                 value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
+                onChange={(value) => {
+                  handleInputChange('phone', value);
+                  setPhoneError('');
+                }}
+                className="phone-input"
+                placeholder="Enter phone number"
               />
+              {phoneError && (
+                <p className="text-sm text-red-500">{phoneError}</p>
+              )}
             </div>
           </div>
 
@@ -277,8 +309,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
               onCheckedChange={(checked) => handleInputChange('allowLogin', checked)}
             />
           </div>
-
-
 
           {/* Gender and Date of Birth */}
           <div className="grid grid-cols-2 gap-4">

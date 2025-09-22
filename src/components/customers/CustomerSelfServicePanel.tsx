@@ -15,6 +15,9 @@ import { cn } from '@/lib/utils';
 import { useAppData, Customer, Appointment } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { toast } from 'sonner';
+import PhoneInput from 'react-phone-number-input';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+import 'react-phone-number-input/style.css';
 interface CustomerSelfServicePanelProps {
   trigger?: React.ReactNode;
   className?: string;
