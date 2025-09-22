@@ -19,7 +19,7 @@ import { useAppData, Tax } from '@/contexts/AppDataContext';
 import { toast } from 'sonner';
 
 const Taxes = () => {
-  const { taxes, deleteTax, getLocationById, getServiceById } = useAppData();
+  const { taxes, deleteTax, getLocationById, getServiceById, duplicateTax } = useAppData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedTax, setSelectedTax] = useState<Tax | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +58,16 @@ const Taxes = () => {
     }
     const location = getLocationById(tax.locationsFilter);
     return location ? location.name : 'Unknown Location';
+  };
+
+  const getTaxTypeDisplay = (taxType: string) => {
+    switch (taxType) {
+      case 'vat': return 'VAT';
+      case 'sales-tax': return 'Sales Tax';
+      case 'service-tax': return 'Service Tax';  
+      case 'other': return 'Other';
+      default: return 'Sales Tax';
+    }
   };
 
   // Filter taxes
@@ -108,7 +118,25 @@ const Taxes = () => {
   };
 
   const handleBulkDuplicate = () => {
-    toast.success(`${selectedTaxes.length} tax(es) duplicated successfully`);
+    if (selectedTaxes.length === 0) return;
+    
+    let successCount = 0;
+    selectedTaxes.forEach(taxId => {
+      try {
+        duplicateTax(taxId);
+        successCount++;
+      } catch (error) {
+        console.error('Failed to duplicate tax:', error);
+      }
+    });
+    
+    setSelectedTaxes([]);
+    
+    if (successCount > 0) {
+      toast.success(`${successCount} tax(es) duplicated successfully`);
+    } else {
+      toast.error('Failed to duplicate taxes');
+    }
   };
 
   const handleExportToCSV = () => {
@@ -242,6 +270,7 @@ const Taxes = () => {
                 </TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead>NAME</TableHead>
+                <TableHead>TYPE</TableHead>
                 <TableHead>AMOUNT</TableHead>
                 <TableHead>LOCATIONS</TableHead>
                 <TableHead>STATUS</TableHead>
@@ -251,7 +280,7 @@ const Taxes = () => {
             <TableBody>
               {paginatedTaxes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-slate-500">
+                  <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                     {searchTerm ? 'No taxes found matching your search.' : 'No entries!'}
                   </TableCell>
                 </TableRow>
@@ -271,8 +300,31 @@ const Taxes = () => {
                       />
                     </TableCell>
                     <TableCell>{startIndex + index + 1}</TableCell>
-                    <TableCell className="font-medium">{tax.name}</TableCell>
-                    <TableCell>{tax.amount}%</TableCell>
+                    <TableCell className="font-medium">
+                      <div>
+                        <div>{tax.name}</div>
+                        {tax.description && (
+                          <div className="text-sm text-slate-500">{tax.description}</div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {getTaxTypeDisplay(tax.taxType || 'sales-tax')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <span>{tax.amount}%</span>
+                        {(tax.minimumAmount || tax.maximumAmount) && (
+                          <div className="text-xs text-slate-500">
+                            {tax.minimumAmount && `Min: $${tax.minimumAmount}`}
+                            {tax.minimumAmount && tax.maximumAmount && ' | '}
+                            {tax.maximumAmount && `Max: $${tax.maximumAmount}`}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{getLocationNames(tax)}</TableCell>
                     <TableCell>
                       <Badge variant={tax.enabled ? "default" : "secondary"}>

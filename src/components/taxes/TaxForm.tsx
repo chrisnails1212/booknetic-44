@@ -22,7 +22,7 @@ interface TaxFormProps {
 }
 
 export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
-  const { addTax, updateTax, locations, services } = useAppData();
+  const { addTax, updateTax, locations, services, checkTaxNameExists } = useAppData();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -31,6 +31,11 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
     servicesFilter: 'all-services',
     incorporateIntoPrice: false,
     enabled: true,
+    taxType: 'sales-tax' as 'vat' | 'sales-tax' | 'service-tax' | 'other',
+    minimumAmount: '',
+    maximumAmount: '',
+    applyToDiscountedPrice: true,
+    description: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -44,6 +49,11 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
         servicesFilter: tax.servicesFilter || 'all-services',
         incorporateIntoPrice: tax.incorporateIntoPrice || false,
         enabled: tax.enabled ?? true,
+        taxType: tax.taxType || 'sales-tax',
+        minimumAmount: tax.minimumAmount?.toString() || '',
+        maximumAmount: tax.maximumAmount?.toString() || '',
+        applyToDiscountedPrice: tax.applyToDiscountedPrice ?? true,
+        description: tax.description || '',
       });
     } else {
       setFormData({
@@ -53,6 +63,11 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
         servicesFilter: 'all-services',
         incorporateIntoPrice: false,
         enabled: true,
+        taxType: 'sales-tax',
+        minimumAmount: '',
+        maximumAmount: '',
+        applyToDiscountedPrice: true,
+        description: '',
       });
     }
     setErrors({});
@@ -63,6 +78,8 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
 
     if (!formData.name.trim()) {
       newErrors.name = 'Tax name is required';
+    } else if (checkTaxNameExists(formData.name, tax?.id)) {
+      newErrors.name = 'A tax with this name already exists';
     }
 
     if (!formData.amount.trim()) {
@@ -74,6 +91,30 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
       }
       if (amountValue > 100) {
         newErrors.amount = 'Tax amount cannot exceed 100%';
+      }
+    }
+
+    // Validate minimum amount
+    if (formData.minimumAmount && formData.minimumAmount.trim()) {
+      const minValue = parseFloat(formData.minimumAmount);
+      if (isNaN(minValue) || minValue < 0) {
+        newErrors.minimumAmount = 'Minimum amount must be a positive number';
+      }
+    }
+
+    // Validate maximum amount
+    if (formData.maximumAmount && formData.maximumAmount.trim()) {
+      const maxValue = parseFloat(formData.maximumAmount);
+      if (isNaN(maxValue) || maxValue < 0) {
+        newErrors.maximumAmount = 'Maximum amount must be a positive number';
+      }
+      
+      // Check if max is greater than min
+      if (formData.minimumAmount && formData.minimumAmount.trim()) {
+        const minValue = parseFloat(formData.minimumAmount);
+        if (!isNaN(minValue) && maxValue <= minValue) {
+          newErrors.maximumAmount = 'Maximum amount must be greater than minimum amount';
+        }
       }
     }
 
@@ -96,6 +137,11 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
         servicesFilter: formData.servicesFilter,
         incorporateIntoPrice: formData.incorporateIntoPrice,
         enabled: formData.enabled,
+        taxType: formData.taxType,
+        minimumAmount: formData.minimumAmount ? parseFloat(formData.minimumAmount) : undefined,
+        maximumAmount: formData.maximumAmount ? parseFloat(formData.maximumAmount) : undefined,
+        applyToDiscountedPrice: formData.applyToDiscountedPrice,
+        description: formData.description.trim(),
       };
 
       if (tax) {
@@ -118,6 +164,16 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
     
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const getTaxTypeLabel = (type: string) => {
+    switch (type) {
+      case 'vat': return 'VAT (Value Added Tax)';
+      case 'sales-tax': return 'Sales Tax';
+      case 'service-tax': return 'Service Tax';
+      case 'other': return 'Other Tax';
+      default: return 'Sales Tax';
     }
   };
 
@@ -230,8 +286,71 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
                 </Select>
               </div>
 
+              {/* Tax Type */}
+              <div className="space-y-2">
+                <Label>Tax Type</Label>
+                <Select 
+                  value={formData.taxType} 
+                  onValueChange={(value) => handleInputChange('taxType', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select tax type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vat">VAT (Value Added Tax)</SelectItem>
+                    <SelectItem value="sales-tax">Sales Tax</SelectItem>
+                    <SelectItem value="service-tax">Service Tax</SelectItem>
+                    <SelectItem value="other">Other Tax</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Optional tax description"
+                />
+              </div>
+
+              {/* Min/Max Amount Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="minAmount">Minimum Amount</Label>
+                  <Input
+                    id="minAmount"
+                    type="number"
+                    step="0.01"
+                    value={formData.minimumAmount}
+                    onChange={(e) => handleInputChange('minimumAmount', e.target.value)}
+                    placeholder="0.00"
+                    className={errors.minimumAmount ? 'border-red-500' : ''}
+                  />
+                  {errors.minimumAmount && (
+                    <p className="text-sm text-red-600">{errors.minimumAmount}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maxAmount">Maximum Amount</Label>
+                  <Input
+                    id="maxAmount"
+                    type="number"
+                    step="0.01"
+                    value={formData.maximumAmount}
+                    onChange={(e) => handleInputChange('maximumAmount', e.target.value)}
+                    placeholder="No limit"
+                    className={errors.maximumAmount ? 'border-red-500' : ''}
+                  />
+                  {errors.maximumAmount && (
+                    <p className="text-sm text-red-600">{errors.maximumAmount}</p>
+                  )}
+                </div>
+              </div>
+
               {/* Incorporate Tax Toggle */}
-              <div className="flex items-center justify-between py-4">
+              <div className="flex items-center justify-between py-2">
                 <Label htmlFor="incorporate-tax" className="text-sm font-medium">
                   Incorporate Tax into the Service Price
                 </Label>
@@ -239,6 +358,18 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
                   id="incorporate-tax"
                   checked={formData.incorporateIntoPrice}
                   onCheckedChange={(checked) => handleInputChange('incorporateIntoPrice', checked)}
+                />
+              </div>
+
+              {/* Apply to Discounted Price Toggle */}
+              <div className="flex items-center justify-between py-2">
+                <Label htmlFor="apply-discount" className="text-sm font-medium">
+                  Apply Tax to Discounted Price
+                </Label>
+                <Switch
+                  id="apply-discount"
+                  checked={formData.applyToDiscountedPrice}
+                  onCheckedChange={(checked) => handleInputChange('applyToDiscountedPrice', checked)}
                 />
               </div>
 

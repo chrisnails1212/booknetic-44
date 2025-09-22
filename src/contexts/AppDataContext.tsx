@@ -149,6 +149,11 @@ export interface Tax {
   servicesFilter: string;
   incorporateIntoPrice: boolean;
   enabled: boolean;
+  taxType: 'vat' | 'sales-tax' | 'service-tax' | 'other';
+  minimumAmount?: number;
+  maximumAmount?: number;
+  applyToDiscountedPrice: boolean;
+  description?: string;
   createdAt: Date;
 }
 
@@ -226,6 +231,10 @@ interface AppDataContextType {
   addTax: (tax: Omit<Tax, 'id' | 'createdAt'>) => string;
   updateTax: (id: string, tax: Partial<Tax>) => void;
   deleteTax: (id: string) => void;
+  checkTaxNameExists: (name: string, excludeId?: string) => boolean;
+  calculateTaxAmount: (baseAmount: number, taxId: string, locationId?: string, serviceId?: string) => number;
+  getApplicableTaxes: (locationId?: string, serviceId?: string) => Tax[];
+  duplicateTax: (id: string) => string;
   
   addWorkflow: (workflow: Omit<Workflow, 'id' | 'createdAt'>) => string;
   updateWorkflow: (id: string, workflow: Partial<Workflow>) => void;
@@ -858,6 +867,84 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     setTaxes(prev => prev.filter(t => t.id !== id));
   };
 
+  const checkTaxNameExists = (name: string, excludeId?: string) => {
+    return taxes.some(tax => 
+      tax.name.toLowerCase() === name.toLowerCase() && 
+      tax.id !== excludeId
+    );
+  };
+
+  const calculateTaxAmount = (baseAmount: number, taxId: string, locationId?: string, serviceId?: string) => {
+    const tax = taxes.find(t => t.id === taxId);
+    if (!tax || !tax.enabled) return 0;
+
+    // Check location filter
+    if (tax.locationsFilter !== 'all-locations' && locationId && tax.locationsFilter !== locationId) {
+      return 0;
+    }
+
+    // Check service filter
+    if (tax.servicesFilter !== 'all-services' && serviceId && tax.servicesFilter !== serviceId) {
+      return 0;
+    }
+
+    const taxAmount = (baseAmount * tax.amount) / 100;
+
+    // Apply minimum and maximum limits
+    let finalAmount = taxAmount;
+    if (tax.minimumAmount && taxAmount < tax.minimumAmount) {
+      finalAmount = tax.minimumAmount;
+    }
+    if (tax.maximumAmount && taxAmount > tax.maximumAmount) {
+      finalAmount = tax.maximumAmount;
+    }
+
+    return Math.round(finalAmount * 100) / 100; // Round to 2 decimal places
+  };
+
+  const getApplicableTaxes = (locationId?: string, serviceId?: string) => {
+    return taxes.filter(tax => {
+      if (!tax.enabled) return false;
+
+      // Check location filter
+      if (tax.locationsFilter !== 'all-locations' && locationId && tax.locationsFilter !== locationId) {
+        return false;
+      }
+
+      // Check service filter
+      if (tax.servicesFilter !== 'all-services' && serviceId && tax.servicesFilter !== serviceId) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
+  const duplicateTax = (id: string) => {
+    const originalTax = taxes.find(t => t.id === id);
+    if (!originalTax) return '';
+
+    let duplicateName = `${originalTax.name} (Copy)`;
+    let counter = 1;
+    
+    // Ensure unique name for duplicate
+    while (checkTaxNameExists(duplicateName)) {
+      counter++;
+      duplicateName = `${originalTax.name} (Copy ${counter})`;
+    }
+
+    const duplicateData = {
+      ...originalTax,
+      name: duplicateName,
+      enabled: false // Disable duplicates by default for safety
+    };
+
+    // Remove id and createdAt to create new ones
+    const { id: _, createdAt: __, ...taxData } = duplicateData;
+    
+    return addTax(taxData);
+  };
+
   // Helper function to auto-create customer from appointment custom fields
   const autoCreateCustomerFromAppointment = (appointment: Omit<Appointment, 'id'>) => {
     const customFields = appointment.customFields || {};
@@ -1289,6 +1376,10 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     addTax,
     updateTax,
     deleteTax,
+    checkTaxNameExists,
+    calculateTaxAmount,
+    getApplicableTaxes,
+    duplicateTax,
     
     addWorkflow,
     updateWorkflow,
