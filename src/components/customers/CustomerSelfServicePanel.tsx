@@ -15,6 +15,7 @@ import { getAvailableTimeSlotsForDate, isDateAvailable, formatTimeSlot } from '@
 import { cn } from '@/lib/utils';
 import { useAppData, Customer, Appointment } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { canCancelAppointment, canRescheduleAppointment } from '@/utils/businessSettings';
 import { toast } from 'sonner';
 interface CustomerSelfServicePanelProps {
   trigger?: React.ReactNode;
@@ -220,14 +221,16 @@ export const CustomerSelfServicePanel = ({
       return;
     }
 
-    // Check if new date/time is at least 24 hours in the future
-    const newDateTime = new Date(selectedNewDate);
-    newDateTime.setHours(parseInt(selectedNewTime.split(':')[0]), parseInt(selectedNewTime.split(':')[1]));
-    const minRescheduleTime = addDays(new Date(), 1);
-    if (isBefore(newDateTime, minRescheduleTime)) {
-      toast.error('Appointments can only be rescheduled at least 24 hours in advance');
+    const appointment = customerAppointments.find(apt => apt.id === appointmentId);
+    if (!appointment) return;
+
+    // Check reschedule policy
+    const rescheduleCheck = canRescheduleAppointment(appointment.date, appointment.time);
+    if (!rescheduleCheck.allowed) {
+      toast.error(rescheduleCheck.reason || 'Cannot reschedule this appointment');
       return;
     }
+
     updateAppointment(appointmentId, {
       date: selectedNewDate,
       time: selectedNewTime,
@@ -261,15 +264,14 @@ export const CustomerSelfServicePanel = ({
     const appointment = customerAppointments.find(apt => apt.id === cancellingAppointment);
     if (!appointment) return;
 
-    // Check if appointment is at least 24 hours away
-    const appointmentDateTime = new Date(appointment.date);
-    appointmentDateTime.setHours(parseInt(appointment.time.split(':')[0]), parseInt(appointment.time.split(':')[1]));
-    const minCancelTime = addDays(new Date(), 1);
-    if (isBefore(appointmentDateTime, minCancelTime)) {
-      toast.error('Appointments can only be cancelled at least 24 hours in advance');
+    // Check cancellation policy
+    const cancelCheck = canCancelAppointment(appointment.date, appointment.time);
+    if (!cancelCheck.allowed) {
+      toast.error(cancelCheck.reason || 'Cannot cancel this appointment');
       setCancellingAppointment(null);
       return;
     }
+
     updateAppointment(cancellingAppointment, {
       status: 'Cancelled'
     });

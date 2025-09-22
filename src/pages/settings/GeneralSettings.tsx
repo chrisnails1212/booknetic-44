@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,16 +15,45 @@ const GeneralSettings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [settings, setSettings] = useState({
-    timezone: 'UTC',
-    dateFormat: 'MM/DD/YYYY',
-    allowCancellation: true,
-    requireConfirmation: false,
-    emailNotifications: true,
-    smsNotifications: false
+  // Load settings from localStorage on initialization
+  const [settings, setSettings] = useState(() => {
+    try {
+      const stored = localStorage.getItem('businessSettings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          timezone: parsed.timezone || 'UTC',
+          dateFormat: parsed.dateFormat || 'MM/DD/YYYY',
+          allowCancellation: parsed.allowCancellation ?? true,
+          requireConfirmation: parsed.requireConfirmation ?? false,
+          emailNotifications: parsed.emailNotifications ?? true,
+          smsNotifications: parsed.smsNotifications ?? false,
+          cancellationCutoff: parsed.cancellationCutoff || '24h',
+          rescheduleCutoff: parsed.rescheduleCutoff || '24h',
+          adminCanOverride: parsed.adminCanOverride ?? true
+        };
+      }
+    } catch (error) {
+      console.error('Error loading business settings:', error);
+    }
+    
+    // Default settings if none found
+    return {
+      timezone: 'UTC',
+      dateFormat: 'MM/DD/YYYY',
+      allowCancellation: true,
+      requireConfirmation: false,
+      emailNotifications: true,
+      smsNotifications: false,
+      cancellationCutoff: '24h',
+      rescheduleCutoff: '24h',
+      adminCanOverride: true
+    };
   });
 
   const handleSave = () => {
+    // Save settings to localStorage for global access
+    localStorage.setItem('businessSettings', JSON.stringify(settings));
     toast({
       title: "Settings saved",
       description: "General settings have been updated successfully.",
@@ -84,6 +114,71 @@ const GeneralSettings = () => {
                   checked={settings.requireConfirmation}
                   onCheckedChange={(checked) => setSettings({...settings, requireConfirmation: checked})}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Cancellation & Reschedule Rules
+              </CardTitle>
+              <CardDescription>
+                Define how far in advance customers must cancel or reschedule appointments. Admins can always override these rules manually.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="cancellationCutoff">Cancellation Cut-off Time</Label>
+                  <Select value={settings.cancellationCutoff} onValueChange={(value) => setSettings({...settings, cancellationCutoff: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select cut-off time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no-limit">No limit</SelectItem>
+                      <SelectItem value="6h">6 hours before</SelectItem>
+                      <SelectItem value="12h">12 hours before</SelectItem>
+                      <SelectItem value="24h">24 hours before</SelectItem>
+                      <SelectItem value="48h">48 hours before</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="rescheduleCutoff">Reschedule Cut-off Time</Label>
+                  <Select value={settings.rescheduleCutoff} onValueChange={(value) => setSettings({...settings, rescheduleCutoff: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select cut-off time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no-limit">No limit</SelectItem>
+                      <SelectItem value="6h">6 hours before</SelectItem>
+                      <SelectItem value="12h">12 hours before</SelectItem>
+                      <SelectItem value="24h">24 hours before</SelectItem>
+                      <SelectItem value="48h">48 hours before</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="adminCanOverride">Admin Override Enabled</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Allow admins to manually override these policies from their dashboard
+                  </p>
+                </div>
+                <Switch 
+                  id="adminCanOverride" 
+                  checked={settings.adminCanOverride}
+                  onCheckedChange={(checked) => setSettings({...settings, adminCanOverride: checked})}
+                />
+              </div>
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Note:</strong> These rules will be automatically enforced in the customer portal and booking confirmations. 
+                  Customers will see appropriate messages when attempting to cancel or reschedule outside the allowed timeframe.
+                </p>
               </div>
             </CardContent>
           </Card>
