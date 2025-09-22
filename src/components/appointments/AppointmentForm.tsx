@@ -271,16 +271,10 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
   // Initialize form with appointment data if editing, or with initial date/time if creating new
   useEffect(() => {
     if (appointment) {
-      // Safely convert appointment.date to Date object avoiding timezone shifts
-      let appointmentDate: Date;
-      if (appointment.date instanceof Date) {
-        appointmentDate = appointment.date;
-      } else {
-        // Parse date string as local date to avoid timezone shifts
-        const dateStr = String(appointment.date);
-        const [year, month, day] = dateStr.split('-').map(Number);
-        appointmentDate = new Date(year, month - 1, day);
-      }
+      // Safely convert appointment.date to Date object if it's a string
+      const appointmentDate = appointment.date instanceof Date 
+        ? appointment.date 
+        : new Date(appointment.date);
       
       setAppointmentData({
         locationId: appointment.locationId,
@@ -542,9 +536,7 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
     if (!validateForm()) return;
 
     // Check staff availability for new appointments or when time/date changes
-    // Parse date as local date to avoid timezone shifts
-    const [year, month, day] = appointmentData.date.split('-').map(Number);
-    const appointmentDate = new Date(year, month - 1, day);
+    const appointmentDate = new Date(appointmentData.date);
     const serviceDuration = selectedService?.duration || 60;
     
     if (!appointment || 

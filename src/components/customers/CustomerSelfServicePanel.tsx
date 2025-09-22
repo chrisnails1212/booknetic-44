@@ -198,7 +198,7 @@ export const CustomerSelfServicePanel = ({
           id: apt.id,
           staffId: apt.staffId,
           serviceId: apt.serviceId,
-          date: apt.date instanceof Date ? apt.date : new Date(apt.date),
+          date: apt.date,
           time: apt.time,
           duration: appointmentDuration
         };

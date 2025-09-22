@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { normalizeAppointmentDate } from '@/utils/dateHelper';
 
 // Data Types
 export interface Customer {
@@ -121,7 +120,7 @@ export interface Appointment {
   staffId: string;
   serviceId: string;
   locationId: string;
-  date: Date; // Keep as Date - normalize during loading
+  date: Date;
   time: string;
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Rescheduled' | 'Rejected' | 'No-show' | 'Emergency';
   notes: string;
@@ -239,23 +238,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     const saved = localStorage.getItem('app-appointments');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Convert date strings back to Date objects to avoid timezone issues
-      return parsed.map((appointment: any) => ({
-        ...appointment,
-        date: appointment.date instanceof Date 
-          ? appointment.date 
-          : (() => {
-              // Parse date string as local date to avoid timezone shifts
-              const dateStr = typeof appointment.date === 'string' ? appointment.date : 
-                             appointment.date ? appointment.date.toString() : new Date().toISOString().split('T')[0];
-              const [year, month, day] = dateStr.split('-').map(Number);
-              return new Date(year, month - 1, day);
-            })()
-      }));
-    }
-    return [];
+    return saved ? JSON.parse(saved) : [];
   });
   
   const [giftcards, setGiftcards] = useState<Giftcard[]>(() => {
@@ -918,7 +901,6 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     const appointmentEnd = new Date(appointmentDateTime.getTime() + duration * 60000);
     
     return !staffAppointments.some(appointment => {
-      // appointment.date is now guaranteed to be a Date object
       const existingDateTime = new Date(appointment.date);
       const [existingHours, existingMinutes] = appointment.time.split(':').map(Number);
       existingDateTime.setHours(existingHours, existingMinutes, 0, 0);
