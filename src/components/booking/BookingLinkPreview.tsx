@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useBookingTheme } from '@/contexts/BookingThemeContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { formatMinutesToReadable } from '@/utils/timeFormatter';
 
 interface BookingLinkPreviewProps {
   businessSlug: string;
@@ -39,7 +40,7 @@ export const BookingLinkPreview = ({ businessSlug }: BookingLinkPreviewProps) =>
                       <span>Haircut</span>
                       <span className="font-semibold">{formatPrice(30)}</span>
                     </div>
-                    <span className="text-sm text-gray-500">45 min</span>
+                    <span className="text-sm text-gray-500">{formatMinutesToReadable(45)}</span>
                   </div>
                 </div>
                 <div className="p-2 border rounded hover:bg-gray-50 cursor-pointer flex items-center space-x-3">
@@ -51,7 +52,7 @@ export const BookingLinkPreview = ({ businessSlug }: BookingLinkPreviewProps) =>
                       <span>Hair Coloring</span>
                       <span className="font-semibold">{formatPrice(80)}</span>
                     </div>
-                    <span className="text-sm text-gray-500">120 min</span>
+                    <span className="text-sm text-gray-500">{formatMinutesToReadable(120)}</span>
                   </div>
                 </div>
               </div>

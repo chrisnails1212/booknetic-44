@@ -15,6 +15,7 @@ import { InteractiveFormRenderer } from '@/components/forms/InteractiveFormRende
 import { convertCustomFieldsForSaving, createBlobFromBase64 } from '@/utils/fileHelper';
 import { Badge } from '@/components/ui/badge';
 import { FileText } from 'lucide-react';
+import { formatMinutesToReadable } from '@/utils/timeFormatter';
 
 interface AppointmentFormProps {
   onCancel: () => void;
@@ -703,7 +704,7 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
                         ) : (
                           services.map((service) => (
                            <SelectItem key={service.id} value={service.id}>
-                               {service.name} - {formatPrice(service.price)} ({service.duration} min)
+                               {service.name} - {formatPrice(service.price)} ({formatMinutesToReadable(service.duration)})
                              </SelectItem>
                           ))
                         )}

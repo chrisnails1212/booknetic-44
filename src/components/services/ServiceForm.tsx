@@ -12,6 +12,7 @@ import { X, Plus, Trash2, Globe, Edit2, Upload, Camera } from 'lucide-react';
 import { useAppData, Service, Staff, ServiceExtra } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { useToast } from '@/hooks/use-toast';
+import { formatMinutesToReadable, TIME_DURATION_OPTIONS } from '@/utils/timeFormatter';
 
 interface EditExtraFormProps {
   extra: ServiceExtra;
@@ -75,12 +76,11 @@ const EditExtraForm: React.FC<EditExtraFormProps> = ({ extra, onSave, onCancel }
               <SelectValue placeholder="Select duration..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="15">15 minutes</SelectItem>
-              <SelectItem value="30">30 minutes</SelectItem>
-              <SelectItem value="45">45 minutes</SelectItem>
-              <SelectItem value="60">1 hour</SelectItem>
-              <SelectItem value="90">1.5 hours</SelectItem>
-              <SelectItem value="120">2 hours</SelectItem>
+              {TIME_DURATION_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value.toString()}>
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -508,14 +508,11 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
                           <SelectValue placeholder="Select duration..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="15">15 minutes</SelectItem>
-                          <SelectItem value="30">30 minutes</SelectItem>
-                          <SelectItem value="45">45 minutes</SelectItem>
-                          <SelectItem value="60">1 hour</SelectItem>
-                          <SelectItem value="90">1.5 hours</SelectItem>
-                          <SelectItem value="120">2 hours</SelectItem>
-                          <SelectItem value="150">2.5 hours</SelectItem>
-                          <SelectItem value="180">3 hours</SelectItem>
+                          {TIME_DURATION_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value.toString()}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -602,14 +599,13 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
                               <SelectTrigger>
                                 <SelectValue placeholder="Select duration..." />
                               </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="15">15 minutes</SelectItem>
-                                <SelectItem value="30">30 minutes</SelectItem>
-                                <SelectItem value="45">45 minutes</SelectItem>
-                                <SelectItem value="60">1 hour</SelectItem>
-                                <SelectItem value="90">1.5 hours</SelectItem>
-                                <SelectItem value="120">2 hours</SelectItem>
-                              </SelectContent>
+                            <SelectContent>
+                              {TIME_DURATION_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value.toString()}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
                             </Select>
                           </div>
                         </div>
@@ -648,7 +644,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
                                   <div className="text-sm text-gray-600">{extra.description}</div>
                                   <div className="flex items-center gap-4 mt-1">
                                     <div className="text-sm font-medium text-green-600">{formatPrice(extra.price)}</div>
-                                    <div className="text-sm text-gray-500">{extra.duration || 30} min</div>
+                                    <div className="text-sm text-gray-500">{formatMinutesToReadable(extra.duration || 30)}</div>
                                   </div>
                                 </div>
                                 <div className="flex space-x-1">

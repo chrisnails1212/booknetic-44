@@ -17,6 +17,7 @@ import { useAppData, Customer, Appointment } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { canCancelAppointment, canRescheduleAppointment } from '@/utils/businessSettings';
 import { toast } from 'sonner';
+import { formatMinutesToReadable } from '@/utils/timeFormatter';
 interface CustomerSelfServicePanelProps {
   trigger?: React.ReactNode;
   className?: string;

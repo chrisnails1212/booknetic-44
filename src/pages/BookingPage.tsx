@@ -18,6 +18,7 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { useAppData } from '@/contexts/AppDataContext';
 import { format, parse, addMinutes, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { formatMinutesToReadable } from '@/utils/timeFormatter';
 import { InteractiveFormRenderer } from '@/components/forms/InteractiveFormRenderer';
 import { getAvailableTimeSlotsForDate, isDateAvailable, formatTimeSlot, findNextAvailableDate } from '@/utils/availabilityHelper';
 import { convertCustomFieldsForSaving } from '@/utils/fileHelper';
@@ -684,7 +685,7 @@ const BookingPage = () => {
                           <div>
                             <h4 className="font-medium">{service.name}</h4>
                             <p className="text-sm text-gray-600">{service.category}</p>
-                            <p className="text-sm text-gray-500">{service.duration} minutes</p>
+                            <p className="text-sm text-gray-500">{formatMinutesToReadable(service.duration)}</p>
                             {service.description && (
                               <p className="text-sm text-gray-500 mt-1">{service.description}</p>
                             )}
@@ -734,7 +735,7 @@ const BookingPage = () => {
                         <div>
                           <h5 className="font-medium">{extra.name}</h5>
                           <p className="text-sm text-gray-600">{extra.description}</p>
-                          <p className="text-sm text-gray-500">{extra.duration || 30} minutes</p>
+                          <p className="text-sm text-gray-500">{formatMinutesToReadable(extra.duration || 30)}</p>
                         </div>
                       </div>
                       <span className="text-sm font-semibold">+{formatPrice(extra.price)}</span>
@@ -1356,12 +1357,12 @@ const BookingPage = () => {
             {selectedServiceForTime && (
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm text-blue-700">
-                  <strong>Service Duration:</strong> {totalServiceDuration} minutes
+                  <strong>Service Duration:</strong> {formatMinutesToReadable(totalServiceDuration)}
                   {selectedExtras.length > 0 && (
                     <span className="block mt-1">
-                      ({selectedServiceForTime.name}: {selectedServiceForTime.duration} min + {selectedExtras.map(extraId => {
+                      ({selectedServiceForTime.name}: {formatMinutesToReadable(selectedServiceForTime.duration)} + {selectedExtras.map(extraId => {
                         const extra = selectedServiceForTime.extras?.find(e => e.id === extraId);
-                        return extra ? `${extra.name}: ${extra.duration} min` : '';
+                        return extra ? `${extra.name}: ${formatMinutesToReadable(extra.duration || 30)}` : '';
                       }).filter(Boolean).join(' + ')})
                     </span>
                   )}
@@ -1597,7 +1598,14 @@ const BookingPage = () => {
                           if (extra) totalDuration += extra.duration || 30;
                         });
                         return totalDuration;
-                      })()} minutes
+                      })()} <span className="text-xs text-gray-500">({formatMinutesToReadable((() => {
+                        let totalDuration = selectedServiceData.duration;
+                        selectedExtras.forEach(extraId => {
+                          const extra = selectedServiceData.extras?.find(e => e.id === extraId);
+                          if (extra) totalDuration += extra.duration || 30;
+                        });
+                        return totalDuration;
+                      })())})</span>
                     </span>
                   </div>
                 )}
