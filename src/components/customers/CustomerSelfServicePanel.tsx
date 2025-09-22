@@ -198,7 +198,7 @@ export const CustomerSelfServicePanel = ({
           id: apt.id,
           staffId: apt.staffId,
           serviceId: apt.serviceId,
-          date: normalizeAppointmentDate(apt.date),
+          date: apt.date instanceof Date ? apt.date : new Date(apt.date),
           time: apt.time,
           duration: appointmentDuration
         };
@@ -225,7 +225,7 @@ export const CustomerSelfServicePanel = ({
     if (!appointment) return;
 
     // Check reschedule policy
-    const rescheduleCheck = canRescheduleAppointment(normalizeAppointmentDate(appointment.date), appointment.time);
+    const rescheduleCheck = canRescheduleAppointment(appointment.date, appointment.time);
     if (!rescheduleCheck.allowed) {
       toast.error(rescheduleCheck.reason || 'Cannot reschedule this appointment');
       return;

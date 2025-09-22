@@ -121,7 +121,7 @@ export interface Appointment {
   staffId: string;
   serviceId: string;
   locationId: string;
-  date: Date | string; // Allow both Date and string to handle localStorage serialization
+  date: Date; // Keep as Date - normalize during loading
   time: string;
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Rescheduled' | 'Rejected' | 'No-show' | 'Emergency';
   notes: string;
@@ -917,8 +917,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     const appointmentEnd = new Date(appointmentDateTime.getTime() + duration * 60000);
     
     return !staffAppointments.some(appointment => {
-      // Ensure appointment.date is a proper Date object
-      const existingDateTime = normalizeAppointmentDate(appointment.date);
+      // appointment.date is now guaranteed to be a Date object
+      const existingDateTime = new Date(appointment.date);
       const [existingHours, existingMinutes] = appointment.time.split(':').map(Number);
       existingDateTime.setHours(existingHours, existingMinutes, 0, 0);
       

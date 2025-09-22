@@ -846,14 +846,14 @@ const BookingPage = () => {
           }
           
           
-          return {
-            id: appointment.id,
-            staffId: appointment.staffId,
-            serviceId: appointment.serviceId,
-            date: appointment.date,
-            time: appointment.time,
-            duration: appointmentDuration
-          };
+        return {
+          id: appointment.id,
+          staffId: appointment.staffId,
+          serviceId: appointment.serviceId,
+          date: appointment.date instanceof Date ? appointment.date : new Date(appointment.date),
+          time: appointment.time,
+          duration: appointmentDuration
+        };
         });
 
         // Get available time slots for selected date
@@ -934,7 +934,7 @@ const BookingPage = () => {
                         id: appointment.id,
                         staffId: appointment.staffId,
                         serviceId: appointment.serviceId,
-                        date: appointment.date,
+                        date: appointment.date instanceof Date ? appointment.date : new Date(appointment.date),
                         time: appointment.time,
                         duration: appointmentDuration
                       };
@@ -1199,7 +1199,7 @@ const BookingPage = () => {
                             id: appointment.id,
                             staffId: appointment.staffId,
                             serviceId: appointment.serviceId,
-                            date: appointment.date,
+                            date: appointment.date instanceof Date ? appointment.date : new Date(appointment.date),
                             time: appointment.time,
                             duration: appointmentDuration
                           };
@@ -1276,7 +1276,7 @@ const BookingPage = () => {
                               id: appointment.id,
                               staffId: appointment.staffId,
                               serviceId: appointment.serviceId,
-                              date: appointment.date,
+                              date: appointment.date instanceof Date ? appointment.date : new Date(appointment.date),
                               time: appointment.time,
                               duration: appointmentDuration
                             };
