@@ -270,7 +270,10 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
 
   // Initialize form with appointment data if editing, or with initial date/time if creating new
   useEffect(() => {
+    console.log('AppointmentForm useEffect triggered', { appointment: !!appointment, initialDate, initialTime });
+    
     if (appointment) {
+      console.log('Processing existing appointment');
       // Safely convert appointment.date to Date object if it's a string
       const appointmentDate = appointment.date instanceof Date 
         ? appointment.date 
@@ -282,6 +285,7 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
       const day = String(appointmentDate.getDate()).padStart(2, '0');
       const localDateString = `${year}-${month}-${day}`;
       
+      console.log('Setting appointment data from existing appointment');
       setAppointmentData({
         locationId: appointment.locationId,
         serviceId: appointment.serviceId,
@@ -336,6 +340,7 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
       setCustomFieldValues(regularFields);
       setDynamicFieldValues(dynamicFields);
     } else if (initialDate || initialTime) {
+      console.log('Processing initial date/time for new appointment');
       // Set initial date and time for new appointments created from calendar clicks
       // Format initial date as YYYY-MM-DD without timezone conversion
       let localDateString = '';
@@ -346,11 +351,28 @@ const AppointmentForm = ({ onCancel, onSave, appointment, initialDate, initialTi
         localDateString = `${year}-${month}-${day}`;
       }
       
-      setAppointmentData(prev => ({
-        ...prev,
-        date: localDateString || prev.date,
-        time: initialTime || prev.time
-      }));
+      console.log('Setting appointment data with initial values', { localDateString, initialTime });
+      setAppointmentData(prev => {
+        console.log('setAppointmentData callback with prev:', prev);
+        if (!prev) {
+          console.error('prev is undefined in setAppointmentData callback');
+          return {
+            locationId: '',
+            serviceId: '',
+            staffId: '',
+            customerId: '',
+            date: localDateString || '',
+            time: initialTime || '',
+            status: 'Pending' as 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Rescheduled' | 'Rejected' | 'No-show' | 'Emergency',
+            notes: ''
+          };
+        }
+        return {
+          ...prev,
+          date: localDateString || prev.date,
+          time: initialTime || prev.time
+        };
+      });
     }
   }, [appointment, initialDate, initialTime]);
 
