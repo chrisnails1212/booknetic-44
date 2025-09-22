@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { ConditionalRule } from '@/types/formTypes';
+import { validateEmail } from '@/utils/emailValidation';
 
 interface DynamicFieldRendererProps {
   dynamicField: NonNullable<ConditionalRule['dynamicField']>;
@@ -15,6 +16,7 @@ interface DynamicFieldRendererProps {
 }
 
 export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicFieldRendererProps) => {
+  const [emailError, setEmailError] = React.useState<string>('');
   const renderField = () => {
     switch (dynamicField.type) {
       case 'text-input':
@@ -120,6 +122,18 @@ export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicF
         );
 
       case 'email':
+        const handleEmailChange = (newValue: string) => {
+          onChange(newValue);
+          
+          // Validate email format if there's a value
+          if (newValue && newValue.trim()) {
+            const validation = validateEmail(newValue.trim());
+            setEmailError(validation.isValid ? '' : validation.error || '');
+          } else {
+            setEmailError('');
+          }
+        };
+
         return (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-slate-700">
@@ -129,10 +143,13 @@ export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicF
             <Input
               type="email"
               value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => handleEmailChange(e.target.value)}
               placeholder={dynamicField.placeholder || 'example@email.com'}
-              className="w-full"
+              className={`w-full ${emailError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
             />
+            {emailError && (
+              <p className="text-sm text-red-500">{emailError}</p>
+            )}
           </div>
         );
 

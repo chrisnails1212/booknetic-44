@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppData, Customer } from '@/contexts/AppDataContext';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { validateEmail } from '@/utils/emailValidation';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
   });
 
   const [phoneError, setPhoneError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const { addCustomer, updateCustomer, deleteCustomer, getCustomerAppointments, appointments, customers } = useAppData();
 
@@ -143,6 +145,14 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       alert('Please fill in all required fields');
       return;
     }
+
+    // Validate email format
+    const emailValidation = validateEmail(formData.email.trim());
+    if (!emailValidation.isValid) {
+      setEmailError(emailValidation.error || 'Invalid email format');
+      return;
+    }
+    setEmailError('');
 
     // Basic phone validation - check if it starts with + and has reasonable length
     if (formData.phone && formData.phone.trim()) {
@@ -264,9 +274,16 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
                 type="email"
                 placeholder="example@gmail.com"
                 value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
+                onChange={(e) => {
+                  handleInputChange('email', e.target.value);
+                  setEmailError('');
+                }}
+                className={emailError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                 required
               />
+              {emailError && (
+                <p className="text-sm text-red-500">{emailError}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
