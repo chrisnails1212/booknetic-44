@@ -115,37 +115,3 @@
     @apply bg-background text-foreground;
   }
 }
-
-/* Phone Input Styles */
-.phone-input .PhoneInputInput {
-  @apply w-full px-3 py-2 text-sm border border-input bg-background rounded-md ring-offset-background;
-  @apply placeholder:text-muted-foreground;
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
-  @apply disabled:cursor-not-allowed disabled:opacity-50;
-}
-
-.phone-input .PhoneInputCountrySelect {
-  @apply border-r border-input pr-2 mr-2;
-}
-
-.phone-input .PhoneInputCountrySelectArrow {
-  @apply text-muted-foreground;
-}
-
-.phone-input .PhoneInputCountryIcon {
-  @apply w-4 h-4;
-}
-
-/* Country dropdown menu styles */
-.PhoneInputCountrySelect:focus {
-  @apply outline-none ring-2 ring-ring ring-offset-2;
-}
-
-/* Make the dropdown menu styled properly */
-.PhoneInputCountrySelectDropdown {
-  @apply bg-popover border border-border rounded-md shadow-lg z-50 max-h-40 overflow-y-auto;
-}
-
-.PhoneInputCountrySelectDropdown .PhoneInputCountrySelectOption {
-  @apply px-3 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer;
-}

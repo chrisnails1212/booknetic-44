@@ -12,11 +12,7 @@ import { CalendarIcon, Plus, X, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppData, Customer } from '@/contexts/AppDataContext';
-// Temporarily removing phone input to debug QueryClientProvider issue
-// import PhoneInput from 'react-phone-number-input';
-// import { isValidPhoneNumber, getCountryCallingCode } from 'libphonenumber-js';
-// import { detectUserCountry } from '@/utils/countryDetection';
-// import 'react-phone-number-input/style.css';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -38,7 +34,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
   });
 
   const [phoneError, setPhoneError] = useState('');
-  // const [defaultCountry, setDefaultCountry] = useState<string>('US');
 
   const { addCustomer, updateCustomer, deleteCustomer, getCustomerAppointments, appointments, customers } = useAppData();
 
@@ -96,19 +91,6 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
     return null;
   };
 
-  // Auto-detect user's country on component mount - temporarily disabled
-  /*
-  useEffect(() => {
-    const detectCountry = async () => {
-      const country = await detectUserCountry();
-      if (country) {
-        setDefaultCountry(country);
-      }
-    };
-    detectCountry();
-  }, []);
-  */
-
   useEffect(() => {
     if (customer) {
       setFormData({
@@ -162,14 +144,15 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
       return;
     }
 
-    // Temporarily disable phone validation
-    /*
-    if (formData.phone && !isValidPhoneNumber(formData.phone)) {
-      setPhoneError('Please enter a valid phone number');
-      return;
+    // Basic phone validation - check if it starts with + and has reasonable length
+    if (formData.phone && formData.phone.trim()) {
+      const phone = formData.phone.trim();
+      if (!phone.startsWith('+') || phone.length < 8 || phone.length > 20) {
+        setPhoneError('Please enter a valid phone number');
+        return;
+      }
     }
     setPhoneError('');
-    */
 
     const customerData = {
       firstName: formData.firstName,
@@ -287,14 +270,14 @@ export const CustomerForm = ({ isOpen, onClose, customer }: CustomerFormProps) =
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
-              <Input
-                id="phone"
-                placeholder="(201) 555-0123"
+              <PhoneInput
                 value={formData.phone}
-                onChange={(e) => {
-                  handleInputChange('phone', e.target.value);
+                onChange={(value) => {
+                  handleInputChange('phone', value);
                   setPhoneError('');
                 }}
+                placeholder="Enter phone number"
+                className="w-full"
               />
               {phoneError && (
                 <p className="text-sm text-red-500">{phoneError}</p>

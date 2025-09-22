@@ -41,12 +41,7 @@ import CustomerPortal from "./pages/CustomerPortal";
 
 const queryClient = new QueryClient();
 
-console.log('Creating App component, React:', React);
-console.log('QueryClient created:', queryClient);
-
-const App = () => {
-  console.log('Rendering App component');
-  return (
+const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <CurrencyProvider>
@@ -96,7 +91,6 @@ const App = () => {
       </CurrencyProvider>
     </TooltipProvider>
   </QueryClientProvider>
-  );
-};
+);
 
 export default App;
