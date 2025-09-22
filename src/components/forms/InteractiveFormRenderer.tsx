@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ConditionalMessage } from './ConditionalMessage';
 import { DynamicFieldRenderer } from './DynamicFieldRenderer';
 import { ConditionalRule, FormElement } from '@/types/formTypes';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 interface InteractiveFormRendererProps {
   element: FormElement;
@@ -518,11 +519,10 @@ export const InteractiveFormRenderer = ({
               {element.label}
               {required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <Input
-              type="tel"
+            <PhoneInput
               value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={element.placeholder || '+1 (555) 123-4567'}
+              onChange={(phoneValue) => onChange(phoneValue)}
+              placeholder={element.placeholder || 'Enter phone number'}
               className="w-full"
             />
           </div>

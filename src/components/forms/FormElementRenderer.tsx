@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Link } from 'lucide-react';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 interface ConditionalRule {
   targetFieldId: string;
@@ -288,9 +289,8 @@ export const FormElementRenderer = ({ element, preview = true, formValues = {}, 
               {element.label}
               {required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <Input
-              type="tel"
-              placeholder={element.placeholder || '+1 (555) 123-4567'}
+            <PhoneInput
+              placeholder={element.placeholder || 'Enter phone number'}
               disabled={preview}
               className="w-full"
             />
