@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Link } from 'lucide-react';
+import { InternationalPhoneInput } from '@/components/ui/international-phone-input';
+import { EmailInput } from '@/components/ui/email-input';
 
 interface ConditionalRule {
   targetFieldId: string;
@@ -283,34 +285,28 @@ export const FormElementRenderer = ({ element, preview = true, formValues = {}, 
 
       case 'phone':
         return (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
-              {element.label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              type="tel"
-              placeholder={element.placeholder || '+1 (555) 123-4567'}
-              disabled={preview}
-              className="w-full"
-            />
-          </div>
+          <InternationalPhoneInput
+            label={element.label}
+            value=""
+            onChange={() => {}} // Preview mode doesn't need onChange
+            placeholder={element.placeholder}
+            required={required}
+            disabled={preview}
+            className="w-full"
+          />
         );
 
       case 'email':
         return (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
-              {element.label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              type="email"
-              placeholder={element.placeholder || 'example@email.com'}
-              disabled={preview}
-              className="w-full"
-            />
-          </div>
+          <EmailInput
+            label={element.label}
+            value=""
+            onChange={() => {}} // Preview mode doesn't need onChange
+            placeholder={element.placeholder}
+            required={required}
+            disabled={preview}
+            className="w-full"
+          />
         );
 
       default:

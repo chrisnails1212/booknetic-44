@@ -6,6 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConditionalRule } from '@/types/formTypes';
+import { InternationalPhoneInput } from '@/components/ui/international-phone-input';
+import { EmailInput } from '@/components/ui/email-input';
 
 interface DynamicFieldRendererProps {
   dynamicField: NonNullable<ConditionalRule['dynamicField']>;
@@ -120,36 +122,26 @@ export const DynamicFieldRenderer = ({ dynamicField, value, onChange }: DynamicF
 
       case 'email':
         return (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
-              {dynamicField.label}
-              {dynamicField.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              type="email"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={dynamicField.placeholder || 'example@email.com'}
-              className="w-full"
-            />
-          </div>
+          <EmailInput
+            label={dynamicField.label}
+            value={value || ''}
+            onChange={onChange}
+            placeholder={dynamicField.placeholder}
+            required={dynamicField.required}
+            className="w-full"
+          />
         );
 
       case 'phone':
         return (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
-              {dynamicField.label}
-              {dynamicField.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              type="tel"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={dynamicField.placeholder || '+1 (555) 123-4567'}
-              className="w-full"
-            />
-          </div>
+          <InternationalPhoneInput
+            label={dynamicField.label}
+            value={value || ''}
+            onChange={onChange}
+            placeholder={dynamicField.placeholder}
+            required={dynamicField.required}
+            className="w-full"
+          />
         );
 
       default:

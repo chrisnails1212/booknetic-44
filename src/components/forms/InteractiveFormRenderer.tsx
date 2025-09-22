@@ -13,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ConditionalMessage } from './ConditionalMessage';
 import { DynamicFieldRenderer } from './DynamicFieldRenderer';
 import { ConditionalRule, FormElement } from '@/types/formTypes';
+import { InternationalPhoneInput } from '@/components/ui/international-phone-input';
+import { EmailInput } from '@/components/ui/email-input';
 
 interface InteractiveFormRendererProps {
   element: FormElement;
@@ -513,36 +515,26 @@ export const InteractiveFormRenderer = ({
 
       case 'phone':
         return (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
-              {element.label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              type="tel"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={element.placeholder || '+1 (555) 123-4567'}
-              className="w-full"
-            />
-          </div>
+          <InternationalPhoneInput
+            label={element.label}
+            value={value || ''}
+            onChange={onChange}
+            placeholder={element.placeholder}
+            required={required}
+            className="w-full"
+          />
         );
 
       case 'email':
         return (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
-              {element.label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Input
-              type="email"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={element.placeholder || 'example@email.com'}
-              className="w-full"
-            />
-          </div>
+          <EmailInput
+            label={element.label}
+            value={value || ''}
+            onChange={onChange}
+            placeholder={element.placeholder}
+            required={required}
+            className="w-full"
+          />
         );
 
       default:
