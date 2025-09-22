@@ -29,7 +29,9 @@ const GeneralSettings = () => {
           emailNotifications: parsed.emailNotifications ?? true,
           smsNotifications: parsed.smsNotifications ?? false,
           cancellationCutoff: parsed.cancellationCutoff || '24h',
-          rescheduleCutoff: parsed.rescheduleCutoff || '24h'
+          rescheduleCutoff: parsed.rescheduleCutoff || '24h',
+          autoConfirmBookings: parsed.autoConfirmBookings ?? false,
+          autoCompleteBookings: parsed.autoCompleteBookings ?? false
         };
       }
     } catch (error) {
@@ -45,7 +47,9 @@ const GeneralSettings = () => {
       emailNotifications: true,
       smsNotifications: false,
       cancellationCutoff: '24h',
-      rescheduleCutoff: '24h'
+      rescheduleCutoff: '24h',
+      autoConfirmBookings: false,
+      autoCompleteBookings: false
     };
   });
 
@@ -164,6 +168,43 @@ const GeneralSettings = () => {
                   <strong>Note:</strong> These rules will be automatically enforced in the customer portal and booking confirmations. 
                   Admins can always override these policies manually from their dashboard when needed.
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Auto-Booking Rules</CardTitle>
+              <CardDescription>
+                Configure automatic booking management to streamline your workflow.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="autoConfirmBookings">Auto-Confirm Bookings</Label>
+                  <p className="text-sm text-muted-foreground">
+                    New bookings instantly go from Pending → Confirmed
+                  </p>
+                </div>
+                <Switch 
+                  id="autoConfirmBookings" 
+                  checked={settings.autoConfirmBookings}
+                  onCheckedChange={(checked) => setSettings({...settings, autoConfirmBookings: checked})}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="autoCompleteBookings">Auto-Complete Bookings</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Mark confirmed bookings as Completed after end time passes
+                  </p>
+                </div>
+                <Switch 
+                  id="autoCompleteBookings" 
+                  checked={settings.autoCompleteBookings}
+                  onCheckedChange={(checked) => setSettings({...settings, autoCompleteBookings: checked})}
+                />
               </div>
             </CardContent>
           </Card>

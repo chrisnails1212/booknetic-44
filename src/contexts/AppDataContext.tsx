@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getBusinessSettings } from '@/utils/businessSettings';
 
 // Data Types
 export interface Customer {
@@ -673,6 +674,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   // Appointment actions
   const addAppointment = (appointment: Omit<Appointment, 'id'>) => {
     const id = generateId();
+    const settings = getBusinessSettings();
     
     // Auto-create customer if appointment has customer data in custom fields
     let customerId = appointment.customerId;
@@ -680,7 +682,13 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       customerId = autoCreateCustomerFromAppointment(appointment);
     }
     
-    const newAppointment: Appointment = { ...appointment, id, customerId };
+    // Auto-confirm booking if enabled and appointment is pending
+    let status = appointment.status;
+    if (settings.autoConfirmBookings && status === 'Pending') {
+      status = 'Confirmed';
+    }
+    
+    const newAppointment: Appointment = { ...appointment, id, customerId, status };
     setAppointments(prev => [...prev, newAppointment]);
     
     // Update customer appointment history
@@ -923,6 +931,13 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   // Auto-complete past appointments
   useEffect(() => {
     const markPastAppointments = () => {
+      const settings = getBusinessSettings();
+      
+      // Exit early if auto-complete is disabled
+      if (!settings.autoCompleteBookings) {
+        return;
+      }
+
       const now = new Date();
       let hasChanges = false;
 
