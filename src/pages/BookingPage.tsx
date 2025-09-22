@@ -521,7 +521,7 @@ const BookingPage = () => {
         locationId: bookingData.location,
         date: new Date(bookingData.date),
         time: bookingData.time,
-        status: 'Confirmed',
+        status: 'Pending',
         notes: note,
         selectedExtras,
         appliedCoupons: availableCoupon ? [availableCoupon.id] : [],
