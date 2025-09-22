@@ -237,7 +237,7 @@ const Appointments = () => {
                     <TableHead>Service</TableHead>
                     <TableHead>Staff</TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead>Guests</TableHead>
+                    
                     <TableHead>Status</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead className="w-32">Actions</TableHead>
@@ -286,11 +286,6 @@ const Appointments = () => {
                         </TableCell>
                         <TableCell>
                           {location?.name || 'Unknown Location'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-center text-gray-400">
-                            -
-                          </div>
                         </TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
