@@ -432,9 +432,12 @@ export const CustomerSelfServicePanel = ({
                 const service = getServiceById(appointment.serviceId);
                 const staff = getStaffById(appointment.staffId);
                 const location = getLocationById(appointment.locationId);
-                const appointmentDate = new Date(appointment.date);
+                const appointmentDate = new Date(appointment.date); 
                 const isUpcoming = isAfter(appointmentDate, new Date()) && appointment.status !== 'Cancelled';
-                const canModify = isUpcoming && isAfter(appointmentDate, addDays(new Date(), 1));
+                const canCancel = isUpcoming && canCancelAppointment(appointment.date, appointment.time).allowed;
+                const canReschedule = isUpcoming && canRescheduleAppointment(appointment.date, appointment.time).allowed;
+                const cancelPolicy = canCancelAppointment(appointment.date, appointment.time);
+                const reschedulePolicy = canRescheduleAppointment(appointment.date, appointment.time);
                 return <Card key={appointment.id}>
                             <CardContent className="p-4 sm:p-6">
                               <div className="flex flex-col lg:flex-row items-start gap-4">
@@ -471,16 +474,36 @@ export const CustomerSelfServicePanel = ({
                                   </div>
                                 </div>
 
-                                {canModify && <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto lg:ml-4">
-                                    <Button variant="outline" size="sm" onClick={() => setEditingAppointment(appointment.id)} className="flex-1 lg:flex-none">
-                                      <Edit2 className="h-4 w-4 sm:mr-2" />
-                                      <span className="hidden sm:inline">Reschedule</span>
-                                    </Button>
-                                    <Button variant="outline" size="sm" onClick={() => handleCancel(appointment.id)} className="flex-1 lg:flex-none">
-                                      <X className="h-4 w-4 sm:mr-2" />
-                                      <span className="hidden sm:inline">Cancel</span>
-                                    </Button>
+                                {(canCancel || canReschedule) && <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto lg:ml-4">
+                                    {canReschedule && (
+                                      <Button variant="outline" size="sm" onClick={() => setEditingAppointment(appointment.id)} className="flex-1 lg:flex-none">
+                                        <Edit2 className="h-4 w-4 sm:mr-2" />
+                                        <span className="hidden sm:inline">Reschedule</span>
+                                      </Button>
+                                    )}
+                                    {canCancel && (
+                                      <Button variant="outline" size="sm" onClick={() => handleCancel(appointment.id)} className="flex-1 lg:flex-none">
+                                        <X className="h-4 w-4 sm:mr-2" />
+                                        <span className="hidden sm:inline">Cancel</span>
+                                      </Button>
+                                    )}
                                   </div>}
+                                
+                                {/* Policy Information */}
+                                {isUpcoming && (!canCancel || !canReschedule) && (
+                                  <div className="text-xs text-muted-foreground space-y-1 w-full lg:w-auto">
+                                    {!canCancel && (
+                                      <p className="text-orange-600 dark:text-orange-400">
+                                        Cancel: {cancelPolicy.reason}
+                                      </p>
+                                    )}
+                                    {!canReschedule && (
+                                      <p className="text-orange-600 dark:text-orange-400">
+                                        Reschedule: {reschedulePolicy.reason}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
                               {/* Reschedule Form */}
