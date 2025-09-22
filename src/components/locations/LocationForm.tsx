@@ -280,10 +280,7 @@ export const LocationForm = ({ isOpen, onClose, location }: LocationFormProps) =
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-6">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
+          <div className="flex justify-end pt-6">
             <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
               {location ? 'Update Location' : 'Add Location'}
             </Button>

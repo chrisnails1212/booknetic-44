@@ -386,10 +386,7 @@ export const TaxForm = ({ isOpen, onClose, tax }: TaxFormProps) => {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t bg-slate-50 flex justify-end space-x-3">
-              <Button type="button" variant="outline" onClick={onClose}>
-                CANCEL
-              </Button>
+            <div className="px-6 py-4 border-t bg-slate-50 flex justify-end">
               <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 {tax ? 'UPDATE' : 'CREATE'}
               </Button>

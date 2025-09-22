@@ -623,10 +623,7 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
             </form>
           </div>
           
-          <div className="flex justify-end space-x-2 pt-4 border-t bg-white">
-            <Button type="button" variant="outline" onClick={onClose}>
-              CANCEL
-            </Button>
+          <div className="flex justify-end pt-4 border-t bg-white">
             <Button 
               type="submit" 
               className="bg-blue-600 hover:bg-blue-700"

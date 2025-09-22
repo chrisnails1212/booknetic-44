@@ -529,10 +529,7 @@ export const CouponForm: React.FC<CouponFormProps> = ({
         </div>
 
         {/* Fixed Action Buttons */}
-        <div className="flex justify-end space-x-4 pt-6 border-t bg-background">
-          <Button type="button" variant="outline" onClick={onClose}>
-            CANCEL
-          </Button>
+        <div className="flex justify-end pt-6 border-t bg-background">
           <Button 
             type="submit" 
             className="bg-blue-600 hover:bg-blue-700"

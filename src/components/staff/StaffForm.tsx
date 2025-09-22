@@ -866,10 +866,7 @@ export const StaffForm = ({
             </form>
           </div>
 
-          <div className="px-8 py-6 border-t bg-gray-50 flex justify-end space-x-3 w-full">
-            <Button variant="outline" onClick={onClose}>
-              CANCEL
-            </Button>
+          <div className="px-8 py-6 border-t bg-gray-50 flex justify-end w-full">
             <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700">
               {staff ? 'UPDATE STAFF' : 'ADD STAFF'}
             </Button>

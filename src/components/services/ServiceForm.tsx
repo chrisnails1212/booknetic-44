@@ -681,10 +681,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ isOpen, onClose, servi
           </div>
 
           <div className="px-8 py-6 border-t bg-gray-50">
-            <div className="flex justify-end space-x-3">
-              <Button type="button" variant="outline" onClick={onClose} className="px-8">
-                CANCEL
-              </Button>
+            <div className="flex justify-end">
               <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-8" onClick={handleSubmit}>
                 {service ? 'SAVE CHANGES' : 'CREATE SERVICE'}
               </Button>
