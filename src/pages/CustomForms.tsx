@@ -39,7 +39,7 @@ const CustomForms = () => {
       const firstVisitForm: SavedForm = {
         id: 'first-visit-form',
         name: 'First Visit Customer Form',
-        elements: 6, // Updated count
+        elements: 4, // Updated count
         conditions: 0, // No conditions anymore
         services: 'All Services',
         createdAt: new Date(),
@@ -74,19 +74,6 @@ const CustomForms = () => {
           label: 'Phone',
           required: true,
           placeholder: 'Phone number'
-        },
-        {
-          id: 'gender',
-          type: 'select',
-          label: 'Gender',
-          required: false,
-          options: ['Male', 'Female', 'Other', 'Prefer not to say']
-        },
-        {
-          id: 'date-of-birth',
-          type: 'date-input',
-          label: 'Date of Birth',
-          required: false
         }
       ];
       
