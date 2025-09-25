@@ -333,6 +333,23 @@ const BookingPage = () => {
     }
   };
 
+  // Function to validate coupon when date changes
+  const validateCouponForDate = (newDate: string) => {
+    if (availableCoupon) {
+      const tempBookingData = { ...bookingData, date: newDate };
+      const validation = validateCouponUsage(availableCoupon);
+      if (!validation.valid) {
+        setAvailableCoupon(null);
+        setBookingData(prev => ({ ...prev, couponCode: '' }));
+        toast({
+          title: "Coupon Removed",
+          description: validation.reason,
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   const validateCouponUsage = (coupon: any, customerId?: string) => {
     console.log('Validating coupon:', coupon.code);
     console.log('Coupon appliesDateFrom:', coupon.appliesDateFrom);
@@ -1320,7 +1337,9 @@ const BookingPage = () => {
                     selected={bookingData.date ? new Date(bookingData.date) : undefined}
                     onSelect={(date) => {
                       if (date) {
-                        setBookingData({ ...bookingData, date: format(date, 'yyyy-MM-dd'), time: '' });
+                        const newDate = format(date, 'yyyy-MM-dd');
+                        setBookingData({ ...bookingData, date: newDate, time: '' });
+                        validateCouponForDate(newDate);
                         setIsCalendarOpen(false);
                       }
                     }}
@@ -1357,7 +1376,9 @@ const BookingPage = () => {
               <HorizontalCalendar
                 selectedDate={bookingData.date ? new Date(bookingData.date) : undefined}
                 onDateSelect={(date) => {
-                  setBookingData({ ...bookingData, date: format(date, 'yyyy-MM-dd'), time: '' });
+                  const newDate = format(date, 'yyyy-MM-dd');
+                  setBookingData({ ...bookingData, date: newDate, time: '' });
+                  validateCouponForDate(newDate);
                 }}
                 disabledDates={(date) => {
                   // Disable past dates and today - booking starts from tomorrow
