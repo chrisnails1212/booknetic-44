@@ -112,16 +112,25 @@ const BookingPage = () => {
 
     // Apply coupon discount
     if (availableCoupon) {
+      let discountAmount = 0;
+      
       if (availableCoupon.discount.includes('%')) {
         const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
-        totalDiscount += subtotal * (percentage / 100);
+        discountAmount = subtotal * (percentage / 100);
       } else {
         // Remove any currency symbol from the start of the discount string
         const discountValue = parseFloat(availableCoupon.discount.replace(/^[^\d.]+/, ''));
         if (!isNaN(discountValue)) {
-          totalDiscount += discountValue;
+          discountAmount = discountValue;
         }
       }
+      
+      // Apply maximum discount limit if specified
+      if (availableCoupon.maximumDiscount && discountAmount > availableCoupon.maximumDiscount) {
+        discountAmount = availableCoupon.maximumDiscount;
+      }
+      
+      totalDiscount += discountAmount;
     }
 
     // Apply gift card
@@ -148,16 +157,25 @@ const BookingPage = () => {
 
     // Apply coupon discount
     if (availableCoupon) {
+      let discountAmount = 0;
+      
       if (availableCoupon.discount.includes('%')) {
         const percentage = parseFloat(availableCoupon.discount.replace('%', ''));
-        subtotal = subtotal * (1 - percentage / 100);
+        discountAmount = subtotal * (percentage / 100);
       } else {
         // Remove any currency symbol from the start of the discount string
         const discountValue = parseFloat(availableCoupon.discount.replace(/^[^\d.]+/, ''));
         if (!isNaN(discountValue)) {
-          subtotal -= discountValue;
+          discountAmount = discountValue;
         }
       }
+      
+      // Apply maximum discount limit if specified
+      if (availableCoupon.maximumDiscount && discountAmount > availableCoupon.maximumDiscount) {
+        discountAmount = availableCoupon.maximumDiscount;
+      }
+      
+      subtotal -= discountAmount;
     }
 
     // Apply gift card
@@ -285,6 +303,53 @@ const BookingPage = () => {
     // Check if coupon is active
     if (coupon.status !== 'Active') {
       return { valid: false, reason: "Coupon is inactive." };
+    }
+
+    // Check date range restrictions
+    const currentDate = new Date();
+    if (coupon.appliesDateFrom === 'Custom' && coupon.customDateFrom) {
+      const fromDate = new Date(coupon.customDateFrom);
+      if (currentDate < fromDate) {
+        return { valid: false, reason: "Coupon is not yet active." };
+      }
+    }
+    if (coupon.appliesDateTo === 'Custom' && coupon.customDateTo) {
+      const toDate = new Date(coupon.customDateTo);
+      if (currentDate > toDate) {
+        return { valid: false, reason: "Coupon has expired." };
+      }
+    }
+
+    // Check service filter
+    if (coupon.servicesFilter && coupon.servicesFilter !== 'all-services') {
+      if (coupon.servicesFilter !== bookingData.service) {
+        return { valid: false, reason: "This coupon does not apply to the selected service." };
+      }
+    }
+
+    // Check staff filter
+    if (coupon.staffFilter && coupon.staffFilter !== 'all-staff') {
+      if (coupon.staffFilter !== bookingData.staff) {
+        return { valid: false, reason: "This coupon does not apply to the selected staff member." };
+      }
+    }
+
+    // Calculate current booking total for minimum purchase validation
+    const selectedService = services.find(s => s.id === bookingData.service);
+    let bookingSubtotal = selectedService ? selectedService.price : 0;
+    
+    // Add extras to subtotal
+    selectedExtras.forEach(extraId => {
+      const extra = selectedService?.extras?.find(e => e.id === extraId);
+      if (extra) bookingSubtotal += extra.price;
+    });
+
+    // Check minimum purchase requirement
+    if (coupon.minimumPurchase && bookingSubtotal < coupon.minimumPurchase) {
+      return { 
+        valid: false, 
+        reason: `Minimum purchase of ${currency.symbol}${coupon.minimumPurchase.toFixed(2)} required.` 
+      };
     }
 
     // Check usage limit
