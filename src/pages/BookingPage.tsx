@@ -345,19 +345,18 @@ const BookingPage = () => {
       return { valid: false, reason: "Coupon is inactive." };
     }
 
-    // Check date range restrictions
-    const currentDate = new Date();
-    // Set current date to start of day for accurate comparison
-    currentDate.setHours(0, 0, 0, 0);
-    console.log('Current date:', currentDate);
+    // Check date range restrictions against the booking date, not current date
+    const bookingDate = new Date(bookingData.date);
+    bookingDate.setHours(0, 0, 0, 0);
+    console.log('Booking date:', bookingDate);
     
     if (coupon.appliesDateFrom === 'Custom' && coupon.customDateFrom) {
       const fromDate = new Date(coupon.customDateFrom);
       fromDate.setHours(0, 0, 0, 0);
       console.log('From date after processing:', fromDate);
-      if (currentDate < fromDate) {
-        console.log('Coupon not yet active');
-        return { valid: false, reason: "Coupon is not yet active." };
+      if (bookingDate < fromDate) {
+        console.log('Coupon not valid for this booking date');
+        return { valid: false, reason: "This coupon is not valid for the selected appointment date." };
       }
     }
     
@@ -365,9 +364,9 @@ const BookingPage = () => {
       const toDate = new Date(coupon.customDateTo);
       toDate.setHours(23, 59, 59, 999); // End of the day
       console.log('To date after processing:', toDate);
-      if (currentDate > toDate) {
-        console.log('Coupon has expired');
-        return { valid: false, reason: "Coupon has expired." };
+      if (bookingDate > toDate) {
+        console.log('Coupon not valid for this booking date');
+        return { valid: false, reason: "This coupon is not valid for the selected appointment date." };
       }
     }
 
