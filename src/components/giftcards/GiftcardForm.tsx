@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { X } from 'lucide-react';
 import { useAppData, Giftcard } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -24,9 +25,9 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
   const [formData, setFormData] = useState({
     code: '',
     balance: '',
-    locationFilter: 'all-locations',
-    servicesFilter: 'all-services',
-    staffFilter: 'all-staff',
+    locationFilter: [] as string[],
+    servicesFilter: [] as string[],
+    staffFilter: [] as string[],
     usageLimit: 'no-limit',
     oncePer: 'customer',
     isActive: true,
@@ -60,14 +61,71 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Filter services and staff based on selected locations
+  const filteredServices = useMemo(() => {
+    if (formData.locationFilter.length === 0) return services; // Show all if no locations selected
+    return services.filter(service => 
+      locations.some(location => 
+        formData.locationFilter.includes(location.id) && 
+        location.serviceIds.includes(service.id)
+      )
+    );
+  }, [services, locations, formData.locationFilter]);
+
+  const filteredStaff = useMemo(() => {
+    if (formData.locationFilter.length === 0 && formData.servicesFilter.length === 0) return staff; // Show all if nothing selected
+    
+    return staff.filter(member => {
+      // Check location filter
+      const locationMatch = formData.locationFilter.length === 0 || 
+        formData.locationFilter.some(locationId => member.locations.includes(locationId));
+      
+      // Check service filter
+      const serviceMatch = formData.servicesFilter.length === 0 || 
+        formData.servicesFilter.some(serviceId => member.services.includes(serviceId));
+      
+      return locationMatch && serviceMatch;
+    });
+  }, [staff, formData.locationFilter, formData.servicesFilter]);
+
+  const handleMultiSelectChange = (field: 'locationFilter' | 'servicesFilter' | 'staffFilter', value: string, checked: boolean) => {
+    setFormData(prev => {
+      const currentValues = prev[field] as string[];
+      const newValues = checked 
+        ? [...currentValues, value]
+        : currentValues.filter(v => v !== value);
+      
+      // If changing locations, reset services and staff filters to maintain consistency
+      if (field === 'locationFilter') {
+        return {
+          ...prev,
+          [field]: newValues,
+          servicesFilter: [],
+          staffFilter: []
+        };
+      }
+      
+      // If changing services, reset staff filter to maintain consistency
+      if (field === 'servicesFilter') {
+        return {
+          ...prev,
+          [field]: newValues,
+          staffFilter: []
+        };
+      }
+      
+      return { ...prev, [field]: newValues };
+    });
+  };
+
   useEffect(() => {
     if (giftcard) {
       setFormData({
         code: giftcard.code || '',
         balance: giftcard.balance?.toString() || '',
-        locationFilter: giftcard.locationFilter || 'all-locations',
-        servicesFilter: giftcard.servicesFilter || 'all-services',
-        staffFilter: giftcard.staffFilter || 'all-staff',
+        locationFilter: Array.isArray(giftcard.locationFilter) ? giftcard.locationFilter : (giftcard.locationFilter === 'all-locations' ? [] : [giftcard.locationFilter]),
+        servicesFilter: Array.isArray(giftcard.servicesFilter) ? giftcard.servicesFilter : (giftcard.servicesFilter === 'all-services' ? [] : [giftcard.servicesFilter]),
+        staffFilter: Array.isArray(giftcard.staffFilter) ? giftcard.staffFilter : (giftcard.staffFilter === 'all-staff' ? [] : [giftcard.staffFilter]),
         usageLimit: giftcard.usageLimit || 'no-limit',
         oncePer: giftcard.oncePer || 'customer',
         isActive: giftcard.isActive ?? true,
@@ -102,9 +160,9 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
       setFormData({
         code: '',
         balance: '',
-        locationFilter: 'all-locations',
-        servicesFilter: 'all-services',
-        staffFilter: 'all-staff',
+        locationFilter: [],
+        servicesFilter: [],
+        staffFilter: [],
         usageLimit: 'no-limit',
         oncePer: 'customer',
         isActive: true,
@@ -200,9 +258,9 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
         code: formData.code.trim().toUpperCase(),
         balance: parseFloat(formData.balance),
         originalAmount: parseFloat(formData.balance),
-        locationFilter: formData.locationFilter,
-        servicesFilter: formData.servicesFilter,
-        staffFilter: formData.staffFilter,
+        locationFilter: formData.locationFilter.length === 0 ? 'all-locations' : formData.locationFilter,
+        servicesFilter: formData.servicesFilter.length === 0 ? 'all-services' : formData.servicesFilter,
+        staffFilter: formData.staffFilter.length === 0 ? 'all-staff' : formData.staffFilter,
         usageLimit: formData.usageLimit,
         oncePer: formData.oncePer,
         isActive: formData.isActive,
@@ -334,54 +392,78 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="locationFilter">Location Filter</Label>
-                <Select value={formData.locationFilter} onValueChange={(value) => handleInputChange('locationFilter', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                    <SelectItem value="all-locations">All Locations</SelectItem>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
+                <Label>Location Filter</Label>
+                <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                  {locations.map((location) => (
+                    <div key={location.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`location-${location.id}`}
+                        checked={formData.locationFilter.includes(location.id)}
+                        onCheckedChange={(checked) => 
+                          handleMultiSelectChange('locationFilter', location.id, checked as boolean)
+                        }
+                      />
+                      <Label htmlFor={`location-${location.id}`} className="text-sm font-normal">
                         {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </Label>
+                    </div>
+                  ))}
+                  {formData.locationFilter.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No locations selected - applies to all locations</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="servicesFilter">Services Filter</Label>
-                <Select value={formData.servicesFilter} onValueChange={(value) => handleInputChange('servicesFilter', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select services..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                    <SelectItem value="all-services">All Services</SelectItem>
-                    {services.map((service) => (
-                      <SelectItem key={service.id} value={service.id}>
+                <Label>Services Filter</Label>
+                <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                  {filteredServices.map((service) => (
+                    <div key={service.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`service-${service.id}`}
+                        checked={formData.servicesFilter.includes(service.id)}
+                        onCheckedChange={(checked) => 
+                          handleMultiSelectChange('servicesFilter', service.id, checked as boolean)
+                        }
+                      />
+                      <Label htmlFor={`service-${service.id}`} className="text-sm font-normal">
                         {service.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </Label>
+                    </div>
+                  ))}
+                  {filteredServices.length === 0 && formData.locationFilter.length > 0 && (
+                    <p className="text-xs text-muted-foreground">No services available for selected locations</p>
+                  )}
+                  {formData.servicesFilter.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No services selected - applies to all services</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="staffFilter">Staff Filter</Label>
-                <Select value={formData.staffFilter} onValueChange={(value) => handleInputChange('staffFilter', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                    <SelectItem value="all-staff">All Staff</SelectItem>
-                    {staff.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
+                <Label>Staff Filter</Label>
+                <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                  {filteredStaff.map((member) => (
+                    <div key={member.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`staff-${member.id}`}
+                        checked={formData.staffFilter.includes(member.id)}
+                        onCheckedChange={(checked) => 
+                          handleMultiSelectChange('staffFilter', member.id, checked as boolean)
+                        }
+                      />
+                      <Label htmlFor={`staff-${member.id}`} className="text-sm font-normal">
                         {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </Label>
+                    </div>
+                  ))}
+                  {filteredStaff.length === 0 && (formData.locationFilter.length > 0 || formData.servicesFilter.length > 0) && (
+                    <p className="text-xs text-muted-foreground">No staff available for selected filters</p>
+                  )}
+                  {formData.staffFilter.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No staff selected - applies to all staff</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
