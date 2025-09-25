@@ -39,8 +39,8 @@ export const CouponForm: React.FC<CouponFormProps> = ({
     customDateTo: Date | undefined;
     usageLimit: string;
     oncePer: string;
-    servicesFilter: string;
-    staffFilter: string;
+    servicesFilter: string[];
+    staffFilter: string[];
     status: 'Active' | 'Inactive';
     minimumPurchase: string;
     maximumDiscount: string;
@@ -55,8 +55,8 @@ export const CouponForm: React.FC<CouponFormProps> = ({
     customDateTo: undefined,
     usageLimit: 'No limit',
     oncePer: '',
-    servicesFilter: 'all-services',
-    staffFilter: 'all-staff',
+    servicesFilter: [],
+    staffFilter: [],
     status: 'Active',
     minimumPurchase: '',
     maximumDiscount: '',
@@ -72,6 +72,19 @@ export const CouponForm: React.FC<CouponFormProps> = ({
       const discountValue = discountMatch ? discountMatch[1] : '';
       const discountType = discountMatch ? (discountMatch[2] === '%' ? '%' : currency.symbol) : '%';
       
+      // Handle legacy single service/staff filter conversion to arrays
+      const servicesFilter = Array.isArray(coupon.servicesFilter) 
+        ? coupon.servicesFilter 
+        : coupon.servicesFilter && coupon.servicesFilter !== 'all-services' 
+          ? [coupon.servicesFilter] 
+          : [];
+      
+      const staffFilter = Array.isArray(coupon.staffFilter) 
+        ? coupon.staffFilter 
+        : coupon.staffFilter && coupon.staffFilter !== 'all-staff' 
+          ? [coupon.staffFilter] 
+          : [];
+      
       setFormData({
         code: coupon.code || '',
         discount: discountValue,
@@ -82,8 +95,8 @@ export const CouponForm: React.FC<CouponFormProps> = ({
         customDateTo: coupon.customDateTo,
         usageLimit: coupon.usageLimit || 'No limit',
         oncePer: coupon.oncePer || '',
-        servicesFilter: coupon.servicesFilter || 'all-services',
-        staffFilter: coupon.staffFilter || 'all-staff',
+        servicesFilter: servicesFilter,
+        staffFilter: staffFilter,
         status: coupon.status === 'Expired' ? 'Inactive' : coupon.status || 'Active',
         minimumPurchase: coupon.minimumPurchase?.toString() || '',
         maximumDiscount: coupon.maximumDiscount?.toString() || '',
@@ -100,8 +113,8 @@ export const CouponForm: React.FC<CouponFormProps> = ({
         customDateTo: undefined,
         usageLimit: 'No limit',
         oncePer: '',
-        servicesFilter: 'all-services',
-        staffFilter: 'all-staff',
+        servicesFilter: [],
+        staffFilter: [],
         status: 'Active',
         minimumPurchase: '',
         maximumDiscount: '',
@@ -233,6 +246,58 @@ export const CouponForm: React.FC<CouponFormProps> = ({
         [field]: ''
       }));
     }
+  };
+
+  const handleMultiSelectChange = (field: 'servicesFilter' | 'staffFilter', value: string, checked: boolean) => {
+    setFormData(prev => {
+      const currentValues = prev[field];
+      const newValues = checked 
+        ? [...currentValues, value]
+        : currentValues.filter(v => v !== value);
+      
+      // If this is services filter change, also update staff filter to only include valid staff
+      if (field === 'servicesFilter') {
+        let validStaffIds = prev.staffFilter;
+        if (newValues.length > 0) {
+          const assignedStaffIds = new Set<string>();
+          newValues.forEach(serviceId => {
+            const service = services.find(s => s.id === serviceId);
+            if (service?.staffIds) {
+              service.staffIds.forEach(staffId => assignedStaffIds.add(staffId));
+            }
+          });
+          validStaffIds = prev.staffFilter.filter(staffId => assignedStaffIds.has(staffId));
+        }
+        
+        return {
+          ...prev,
+          [field]: newValues,
+          staffFilter: validStaffIds
+        };
+      }
+      
+      return {
+        ...prev,
+        [field]: newValues
+      };
+    });
+  };
+
+  // Get available staff based on selected services
+  const getAvailableStaff = () => {
+    if (formData.servicesFilter.length === 0) {
+      return staff; // Show all staff if no services selected
+    }
+    
+    const assignedStaffIds = new Set<string>();
+    formData.servicesFilter.forEach(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      if (service?.staffIds) {
+        service.staffIds.forEach(staffId => assignedStaffIds.add(staffId));
+      }
+    });
+    
+    return staff.filter(member => assignedStaffIds.has(member.id));
   };
 
   return (
@@ -464,37 +529,86 @@ export const CouponForm: React.FC<CouponFormProps> = ({
             {/* Services Filter */}
             <div className="space-y-2">
               <Label htmlFor="servicesFilter">Services filter</Label>
-              <Select value={formData.servicesFilter} onValueChange={(value) => handleInputChange('servicesFilter', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All services" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                  <SelectItem value="all-services">All Services</SelectItem>
+              <div className="border rounded-md p-3 max-h-40 overflow-y-auto bg-white">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="all-services"
+                      checked={formData.servicesFilter.length === 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData(prev => ({ ...prev, servicesFilter: [], staffFilter: [] }));
+                        }
+                      }}
+                    />
+                    <Label htmlFor="all-services" className="text-sm font-medium">
+                      All Services
+                    </Label>
+                  </div>
                   {services.map((service) => (
-                    <SelectItem key={service.id} value={service.id}>
-                      {service.name}
-                    </SelectItem>
+                    <div key={service.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`service-${service.id}`}
+                        checked={formData.servicesFilter.includes(service.id)}
+                        onCheckedChange={(checked) => handleMultiSelectChange('servicesFilter', service.id, checked as boolean)}
+                      />
+                      <Label htmlFor={`service-${service.id}`} className="text-sm">
+                        {service.name}
+                      </Label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
+              {formData.servicesFilter.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  {formData.servicesFilter.length} service{formData.servicesFilter.length > 1 ? 's' : ''} selected
+                </p>
+              )}
             </div>
 
             {/* Staff Filter */}
             <div className="space-y-2">
               <Label htmlFor="staffFilter">Staff filter</Label>
-              <Select value={formData.staffFilter} onValueChange={(value) => handleInputChange('staffFilter', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All staff" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                  <SelectItem value="all-staff">All Staff</SelectItem>
-                  {staff.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
+              <div className="border rounded-md p-3 max-h-40 overflow-y-auto bg-white">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="all-staff"
+                      checked={formData.staffFilter.length === 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData(prev => ({ ...prev, staffFilter: [] }));
+                        }
+                      }}
+                    />
+                    <Label htmlFor="all-staff" className="text-sm font-medium">
+                      All Available Staff
+                    </Label>
+                  </div>
+                  {getAvailableStaff().map((member) => (
+                    <div key={member.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`staff-${member.id}`}
+                        checked={formData.staffFilter.includes(member.id)}
+                        onCheckedChange={(checked) => handleMultiSelectChange('staffFilter', member.id, checked as boolean)}
+                      />
+                      <Label htmlFor={`staff-${member.id}`} className="text-sm">
+                        {member.name}
+                      </Label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
+              {formData.staffFilter.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  {formData.staffFilter.length} staff member{formData.staffFilter.length > 1 ? 's' : ''} selected
+                </p>
+              )}
+              {formData.servicesFilter.length > 0 && getAvailableStaff().length === 0 && (
+                <p className="text-xs text-amber-600">
+                  No staff assigned to selected services
+                </p>
+              )}
             </div>
 
             {/* Combination Rules */}

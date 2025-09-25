@@ -70,8 +70,8 @@ export interface Coupon {
   customDateTo?: Date;
   usageLimit: string;
   oncePer?: string;
-  servicesFilter?: string;
-  staffFilter?: string;
+  servicesFilter?: string | string[];
+  staffFilter?: string | string[];
   timesUsed: number;
   status: 'Active' | 'Inactive' | 'Expired';
   usageHistory: string[];

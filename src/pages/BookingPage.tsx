@@ -321,14 +321,22 @@ const BookingPage = () => {
     }
 
     // Check service filter
-    if (coupon.servicesFilter && coupon.servicesFilter !== 'all-services') {
+    if (coupon.servicesFilter && Array.isArray(coupon.servicesFilter)) {
+      if (coupon.servicesFilter.length > 0 && !coupon.servicesFilter.includes(bookingData.service)) {
+        return { valid: false, reason: "This coupon does not apply to the selected service." };
+      }
+    } else if (coupon.servicesFilter && coupon.servicesFilter !== 'all-services') {
       if (coupon.servicesFilter !== bookingData.service) {
         return { valid: false, reason: "This coupon does not apply to the selected service." };
       }
     }
 
     // Check staff filter
-    if (coupon.staffFilter && coupon.staffFilter !== 'all-staff') {
+    if (coupon.staffFilter && Array.isArray(coupon.staffFilter)) {
+      if (coupon.staffFilter.length > 0 && !coupon.staffFilter.includes(bookingData.staff)) {
+        return { valid: false, reason: "This coupon does not apply to the selected staff member." };
+      }
+    } else if (coupon.staffFilter && coupon.staffFilter !== 'all-staff') {
       if (coupon.staffFilter !== bookingData.staff) {
         return { valid: false, reason: "This coupon does not apply to the selected staff member." };
       }
