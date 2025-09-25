@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { X } from 'lucide-react';
 import { useAppData, Giftcard } from '@/contexts/AppDataContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -24,9 +25,9 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
   const [formData, setFormData] = useState({
     code: '',
     balance: '',
-    locationFilter: 'all-locations',
-    servicesFilter: 'all-services',
-    staffFilter: 'all-staff',
+    locationFilter: [] as string[],
+    servicesFilter: [] as string[],
+    staffFilter: [] as string[],
     usageLimit: 'no-limit',
     oncePer: 'customer',
     isActive: true,
@@ -65,9 +66,12 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
       setFormData({
         code: giftcard.code || '',
         balance: giftcard.balance?.toString() || '',
-        locationFilter: giftcard.locationFilter || 'all-locations',
-        servicesFilter: giftcard.servicesFilter || 'all-services',
-        staffFilter: giftcard.staffFilter || 'all-staff',
+        locationFilter: Array.isArray(giftcard.locationFilter) ? giftcard.locationFilter : 
+          (giftcard.locationFilter && giftcard.locationFilter !== 'all-locations' ? [giftcard.locationFilter] : []),
+        servicesFilter: Array.isArray(giftcard.servicesFilter) ? giftcard.servicesFilter : 
+          (giftcard.servicesFilter && giftcard.servicesFilter !== 'all-services' ? [giftcard.servicesFilter] : []),
+        staffFilter: Array.isArray(giftcard.staffFilter) ? giftcard.staffFilter : 
+          (giftcard.staffFilter && giftcard.staffFilter !== 'all-staff' ? [giftcard.staffFilter] : []),
         usageLimit: giftcard.usageLimit || 'no-limit',
         oncePer: giftcard.oncePer || 'customer',
         isActive: giftcard.isActive ?? true,
@@ -102,9 +106,9 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
       setFormData({
         code: '',
         balance: '',
-        locationFilter: 'all-locations',
-        servicesFilter: 'all-services',
-        staffFilter: 'all-staff',
+        locationFilter: [],
+        servicesFilter: [],
+        staffFilter: [],
         usageLimit: 'no-limit',
         oncePer: 'customer',
         isActive: true,
@@ -262,6 +266,46 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
     handleInputChange('code', result);
   };
 
+  // Filter staff based on selected services and locations
+  const filteredStaff = useMemo(() => {
+    if (formData.servicesFilter.length === 0 && formData.locationFilter.length === 0) {
+      return staff;
+    }
+
+    return staff.filter(member => {
+      let matchesLocation = true;
+      let matchesService = true;
+
+      // Filter by location if locations are selected
+      if (formData.locationFilter.length > 0) {
+        matchesLocation = member.locations?.some(locationId => 
+          formData.locationFilter.includes(locationId)
+        ) || false;
+      }
+
+      // Filter by service if services are selected
+      if (formData.servicesFilter.length > 0) {
+        matchesService = member.services?.some(serviceId => 
+          formData.servicesFilter.includes(serviceId)
+        ) || false;
+      }
+
+      return matchesLocation && matchesService;
+    });
+  }, [staff, formData.servicesFilter, formData.locationFilter]);
+
+  // Handle checkbox changes for multiple selections
+  const handleCheckboxChange = (field: 'locationFilter' | 'servicesFilter' | 'staffFilter', value: string, checked: boolean) => {
+    setFormData(prev => {
+      const currentArray = prev[field] as string[];
+      if (checked) {
+        return { ...prev, [field]: [...currentArray, value] };
+      } else {
+        return { ...prev, [field]: currentArray.filter(item => item !== value) };
+      }
+    });
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="w-[400px] sm:w-[400px] overflow-y-auto">
@@ -335,53 +379,92 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
               <div className="space-y-2">
                 <Label htmlFor="locationFilter">Location Filter</Label>
-                <Select value={formData.locationFilter} onValueChange={(value) => handleInputChange('locationFilter', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                    <SelectItem value="all-locations">All Locations</SelectItem>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="border rounded-md p-3 max-h-32 overflow-y-auto space-y-2">
+                  {locations.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No locations available</p>
+                  ) : (
+                    locations.map((location) => (
+                      <div key={location.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`location-${location.id}`}
+                          checked={formData.locationFilter.includes(location.id)}
+                          onCheckedChange={(checked) => handleCheckboxChange('locationFilter', location.id, checked as boolean)}
+                        />
+                        <Label htmlFor={`location-${location.id}`} className="text-sm font-normal cursor-pointer">
+                          {location.name}
+                        </Label>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {formData.locationFilter.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {formData.locationFilter.length} location{formData.locationFilter.length > 1 ? 's' : ''} selected
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="servicesFilter">Services Filter</Label>
-                <Select value={formData.servicesFilter} onValueChange={(value) => handleInputChange('servicesFilter', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select services..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                    <SelectItem value="all-services">All Services</SelectItem>
-                    {services.map((service) => (
-                      <SelectItem key={service.id} value={service.id}>
-                        {service.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="border rounded-md p-3 max-h-32 overflow-y-auto space-y-2">
+                  {services.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No services available</p>
+                  ) : (
+                    services.map((service) => (
+                      <div key={service.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`service-${service.id}`}
+                          checked={formData.servicesFilter.includes(service.id)}
+                          onCheckedChange={(checked) => handleCheckboxChange('servicesFilter', service.id, checked as boolean)}
+                        />
+                        <Label htmlFor={`service-${service.id}`} className="text-sm font-normal cursor-pointer">
+                          {service.name}
+                        </Label>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {formData.servicesFilter.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {formData.servicesFilter.length} service{formData.servicesFilter.length > 1 ? 's' : ''} selected
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="staffFilter">Staff Filter</Label>
-                <Select value={formData.staffFilter} onValueChange={(value) => handleInputChange('staffFilter', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                    <SelectItem value="all-staff">All Staff</SelectItem>
-                    {staff.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="border rounded-md p-3 max-h-32 overflow-y-auto space-y-2">
+                  {filteredStaff.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {formData.servicesFilter.length > 0 || formData.locationFilter.length > 0 
+                        ? 'No staff available for selected filters' 
+                        : 'No staff available'}
+                    </p>
+                  ) : (
+                    filteredStaff.map((member) => (
+                      <div key={member.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`staff-${member.id}`}
+                          checked={formData.staffFilter.includes(member.id)}
+                          onCheckedChange={(checked) => handleCheckboxChange('staffFilter', member.id, checked as boolean)}
+                        />
+                        <Label htmlFor={`staff-${member.id}`} className="text-sm font-normal cursor-pointer">
+                          {member.name}
+                        </Label>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {formData.staffFilter.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {formData.staffFilter.length} staff member{formData.staffFilter.length > 1 ? 's' : ''} selected
+                  </p>
+                )}
+                {(formData.servicesFilter.length > 0 || formData.locationFilter.length > 0) && filteredStaff.length < staff.length && (
+                  <p className="text-xs text-amber-600">
+                    Staff list filtered based on selected locations and services
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
