@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -263,21 +264,21 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[400px] sm:w-[400px] p-0">
-        <div className="h-full flex flex-col">
-          <SheetHeader className="px-6 py-4 border-b">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="text-lg font-semibold">
-                {giftcard ? 'Edit Gift Card' : 'Add Gift Card'}
-              </SheetTitle>
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </SheetHeader>
+      <SheetContent className="w-[400px] sm:w-[400px] overflow-y-auto">
+        <SheetHeader>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-lg font-semibold">
+              {giftcard ? 'Edit Gift Card' : 'Add Gift Card'}
+            </SheetTitle>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </SheetHeader>
 
-          <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+        <div className="flex flex-col h-full">
+          <div className="flex-1 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="space-y-6 mt-6">
               <div className="space-y-2">
                 <Label htmlFor="code">
                   Code <span className="text-red-500">*</span>
@@ -433,10 +434,10 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
               {/* Enhanced Business Logic Fields */}
               <div className="space-y-4 border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900">Enhanced Business Rules</h3>
+                <h3 className="text-sm font-medium">Enhanced Business Rules</h3>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="minimumPurchase">Minimum Purchase Amount</Label>
+                  <Label htmlFor="minimumPurchase">Minimum Purchase Amount ({currency.symbol})</Label>
                   <Input
                     id="minimumPurchase"
                     type="number"
@@ -452,7 +453,7 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="maxUsagePerTransaction">Maximum Usage per Transaction</Label>
+                  <Label htmlFor="maxUsagePerTransaction">Max Usage Per Transaction ({currency.symbol})</Label>
                   <Input
                     id="maxUsagePerTransaction"
                     type="number"
@@ -468,7 +469,7 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="allowCombination">Allow combination with other offers</Label>
+                  <Label htmlFor="allowCombination">Allow Combination with Other Gift Cards</Label>
                   <Switch
                     id="allowCombination"
                     checked={formData.allowCombination}
@@ -477,14 +478,14 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dailyLimit">Daily Usage Limit</Label>
+                  <Label htmlFor="dailyLimit">Daily Spending Limit ({currency.symbol})</Label>
                   <Input
                     id="dailyLimit"
                     type="number"
                     step="0.01"
                     value={formData.dailyLimit}
                     onChange={(e) => handleInputChange('dailyLimit', e.target.value)}
-                    placeholder="No limit"
+                    placeholder="0.00"
                     className={errors.dailyLimit ? 'border-red-500' : ''}
                   />
                   {errors.dailyLimit && (
@@ -493,14 +494,14 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="monthlyLimit">Monthly Usage Limit</Label>
+                  <Label htmlFor="monthlyLimit">Monthly Spending Limit ({currency.symbol})</Label>
                   <Input
                     id="monthlyLimit"
                     type="number"
                     step="0.01"
                     value={formData.monthlyLimit}
                     onChange={(e) => handleInputChange('monthlyLimit', e.target.value)}
-                    placeholder="No limit"
+                    placeholder="0.00"
                     className={errors.monthlyLimit ? 'border-red-500' : ''}
                   />
                   {errors.monthlyLimit && (
@@ -511,36 +512,26 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
               {/* Partial Usage Rules */}
               <div className="space-y-4 border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900">Partial Usage Rules</h3>
+                <h3 className="text-sm font-medium">Partial Usage Rules</h3>
                 
                 <div className="flex items-center justify-between">
                   <Label htmlFor="allowPartialUse">Allow Partial Use</Label>
                   <Switch
                     id="allowPartialUse"
                     checked={formData.partialUsageRules.allowPartialUse}
-                    onCheckedChange={(checked) => 
-                      handleInputChange('partialUsageRules', {
-                        ...formData.partialUsageRules,
-                        allowPartialUse: checked
-                      })
-                    }
+                    onCheckedChange={(checked) => handleInputChange('partialUsageRules', { ...formData.partialUsageRules, allowPartialUse: checked })}
                   />
                 </div>
 
                 {formData.partialUsageRules.allowPartialUse && (
                   <div className="space-y-2">
-                    <Label htmlFor="minimumRemaining">Minimum Remaining Balance</Label>
+                    <Label htmlFor="minimumRemaining">Minimum Remaining Balance ({currency.symbol})</Label>
                     <Input
                       id="minimumRemaining"
                       type="number"
                       step="0.01"
                       value={formData.partialUsageRules.minimumRemaining}
-                      onChange={(e) => 
-                        handleInputChange('partialUsageRules', {
-                          ...formData.partialUsageRules,
-                          minimumRemaining: e.target.value
-                        })
-                      }
+                      onChange={(e) => handleInputChange('partialUsageRules', { ...formData.partialUsageRules, minimumRemaining: e.target.value })}
                       placeholder="0.00"
                     />
                   </div>
@@ -549,54 +540,39 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
               {/* Transfer Rules */}
               <div className="space-y-4 border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900">Transfer Rules</h3>
+                <h3 className="text-sm font-medium">Transfer Rules</h3>
                 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="allowTransfer">Allow Transfer to Other Customers</Label>
+                  <Label htmlFor="allowTransfer">Allow Balance Transfer</Label>
                   <Switch
                     id="allowTransfer"
                     checked={formData.transferRules.allowTransfer}
-                    onCheckedChange={(checked) => 
-                      handleInputChange('transferRules', {
-                        ...formData.transferRules,
-                        allowTransfer: checked
-                      })
-                    }
+                    onCheckedChange={(checked) => handleInputChange('transferRules', { ...formData.transferRules, allowTransfer: checked })}
                   />
                 </div>
 
                 {formData.transferRules.allowTransfer && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="maxTransferAmount">Maximum Transfer Amount</Label>
+                      <Label htmlFor="maxTransferAmount">Max Transfer Amount ({currency.symbol})</Label>
                       <Input
                         id="maxTransferAmount"
                         type="number"
                         step="0.01"
                         value={formData.transferRules.maxTransferAmount}
-                        onChange={(e) => 
-                          handleInputChange('transferRules', {
-                            ...formData.transferRules,
-                            maxTransferAmount: e.target.value
-                          })
-                        }
-                        placeholder="No limit"
+                        onChange={(e) => handleInputChange('transferRules', { ...formData.transferRules, maxTransferAmount: e.target.value })}
+                        placeholder="0.00"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="transferFee">Transfer Fee</Label>
+                      <Label htmlFor="transferFee">Transfer Fee ({currency.symbol})</Label>
                       <Input
                         id="transferFee"
                         type="number"
                         step="0.01"
                         value={formData.transferRules.transferFee}
-                        onChange={(e) => 
-                          handleInputChange('transferRules', {
-                            ...formData.transferRules,
-                            transferFee: e.target.value
-                          })
-                        }
+                        onChange={(e) => handleInputChange('transferRules', { ...formData.transferRules, transferFee: e.target.value })}
                         placeholder="0.00"
                       />
                     </div>
@@ -606,19 +582,14 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
               {/* Refund Rules */}
               <div className="space-y-4 border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900">Refund Rules</h3>
+                <h3 className="text-sm font-medium">Refund Rules</h3>
                 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="allowRefunds">Allow Refunds</Label>
+                  <Label htmlFor="allowRefund">Allow Refunds</Label>
                   <Switch
-                    id="allowRefunds"
+                    id="allowRefund"
                     checked={formData.refundRules.allowRefund}
-                    onCheckedChange={(checked) => 
-                      handleInputChange('refundRules', {
-                        ...formData.refundRules,
-                        allowRefund: checked
-                      })
-                    }
+                    onCheckedChange={(checked) => handleInputChange('refundRules', { ...formData.refundRules, allowRefund: checked })}
                   />
                 </div>
 
@@ -631,42 +602,36 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                         type="number"
                         step="0.01"
                         value={formData.refundRules.refundFeePercentage}
-                        onChange={(e) => 
-                          handleInputChange('refundRules', {
-                            ...formData.refundRules,
-                            refundFeePercentage: e.target.value
-                          })
-                        }
+                        onChange={(e) => handleInputChange('refundRules', { ...formData.refundRules, refundFeePercentage: e.target.value })}
                         placeholder="0.00"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="refundDeadlineDays">Refund Deadline (days)</Label>
+                      <Label htmlFor="refundDeadlineDays">Refund Deadline (Days)</Label>
                       <Input
                         id="refundDeadlineDays"
                         type="number"
                         value={formData.refundRules.refundDeadlineDays}
-                        onChange={(e) => 
-                          handleInputChange('refundRules', {
-                            ...formData.refundRules,
-                            refundDeadlineDays: e.target.value
-                          })
-                        }
+                        onChange={(e) => handleInputChange('refundRules', { ...formData.refundRules, refundDeadlineDays: e.target.value })}
                         placeholder="30"
                       />
                     </div>
                   </>
                 )}
               </div>
-            </div>
-
-            <div className="px-6 py-4 border-t bg-slate-50">
-              <Button type="submit" className="w-full">
-                {giftcard ? 'Update Gift Card' : 'Add Gift Card'}
-              </Button>
-            </div>
-          </form>
+            </form>
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t bg-white">
+            <Button 
+              type="submit" 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleSubmit}
+            >
+              {giftcard ? 'UPDATE GIFT CARD' : 'ADD GIFT CARD'}
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
