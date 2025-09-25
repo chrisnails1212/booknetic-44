@@ -336,8 +336,7 @@ const BookingPage = () => {
   // Function to validate coupon when date changes
   const validateCouponForDate = (newDate: string) => {
     if (availableCoupon) {
-      const tempBookingData = { ...bookingData, date: newDate };
-      const validation = validateCouponUsage(availableCoupon);
+      const validation = validateCouponUsage(availableCoupon, undefined, newDate);
       if (!validation.valid) {
         setAvailableCoupon(null);
         setBookingData(prev => ({ ...prev, couponCode: '' }));
@@ -350,7 +349,7 @@ const BookingPage = () => {
     }
   };
 
-  const validateCouponUsage = (coupon: any, customerId?: string) => {
+  const validateCouponUsage = (coupon: any, customerId?: string, checkDate?: string) => {
     console.log('Validating coupon:', coupon.code);
     console.log('Coupon appliesDateFrom:', coupon.appliesDateFrom);
     console.log('Coupon appliesDateTo:', coupon.appliesDateTo);
@@ -363,7 +362,7 @@ const BookingPage = () => {
     }
 
     // Check date range restrictions against the booking date, not current date
-    const bookingDate = new Date(bookingData.date);
+    const bookingDate = new Date(checkDate || bookingData.date);
     bookingDate.setHours(0, 0, 0, 0);
     console.log('Booking date:', bookingDate);
     
