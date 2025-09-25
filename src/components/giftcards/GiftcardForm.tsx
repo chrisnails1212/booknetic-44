@@ -25,7 +25,6 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
   const [formData, setFormData] = useState({
     code: '',
     balance: '',
-    locationFilter: [] as string[],
     servicesFilter: [] as string[],
     staffFilter: [] as string[],
     usageLimit: 'no-limit',
@@ -61,49 +60,23 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Filter services and staff based on selected locations
-  const filteredServices = useMemo(() => {
-    if (formData.locationFilter.length === 0) return services; // Show all if no locations selected
-    return services.filter(service => 
-      locations.some(location => 
-        formData.locationFilter.includes(location.id) && 
-        location.serviceIds.includes(service.id)
-      )
-    );
-  }, [services, locations, formData.locationFilter]);
-
+  // Filter staff based on selected services
   const filteredStaff = useMemo(() => {
-    if (formData.locationFilter.length === 0 && formData.servicesFilter.length === 0) return staff; // Show all if nothing selected
+    if (formData.servicesFilter.length === 0) return staff; // Show all if no services selected
     
     return staff.filter(member => {
-      // Check location filter
-      const locationMatch = formData.locationFilter.length === 0 || 
-        formData.locationFilter.some(locationId => member.locations.includes(locationId));
-      
       // Check service filter
-      const serviceMatch = formData.servicesFilter.length === 0 || 
-        formData.servicesFilter.some(serviceId => member.services.includes(serviceId));
-      
-      return locationMatch && serviceMatch;
+      const serviceMatch = formData.servicesFilter.some(serviceId => member.services.includes(serviceId));
+      return serviceMatch;
     });
-  }, [staff, formData.locationFilter, formData.servicesFilter]);
+  }, [staff, formData.servicesFilter]);
 
-  const handleMultiSelectChange = (field: 'locationFilter' | 'servicesFilter' | 'staffFilter', value: string, checked: boolean) => {
+  const handleMultiSelectChange = (field: 'servicesFilter' | 'staffFilter', value: string, checked: boolean) => {
     setFormData(prev => {
       const currentValues = prev[field] as string[];
       const newValues = checked 
         ? [...currentValues, value]
         : currentValues.filter(v => v !== value);
-      
-      // If changing locations, reset services and staff filters to maintain consistency
-      if (field === 'locationFilter') {
-        return {
-          ...prev,
-          [field]: newValues,
-          servicesFilter: [],
-          staffFilter: []
-        };
-      }
       
       // If changing services, reset staff filter to maintain consistency
       if (field === 'servicesFilter') {
@@ -123,7 +96,6 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
       setFormData({
         code: giftcard.code || '',
         balance: giftcard.balance?.toString() || '',
-        locationFilter: Array.isArray(giftcard.locationFilter) ? giftcard.locationFilter : (giftcard.locationFilter === 'all-locations' ? [] : [giftcard.locationFilter]),
         servicesFilter: Array.isArray(giftcard.servicesFilter) ? giftcard.servicesFilter : (giftcard.servicesFilter === 'all-services' ? [] : [giftcard.servicesFilter]),
         staffFilter: Array.isArray(giftcard.staffFilter) ? giftcard.staffFilter : (giftcard.staffFilter === 'all-staff' ? [] : [giftcard.staffFilter]),
         usageLimit: giftcard.usageLimit || 'no-limit',
@@ -160,7 +132,6 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
       setFormData({
         code: '',
         balance: '',
-        locationFilter: [],
         servicesFilter: [],
         staffFilter: [],
         usageLimit: 'no-limit',
@@ -258,7 +229,6 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
         code: formData.code.trim().toUpperCase(),
         balance: parseFloat(formData.balance),
         originalAmount: parseFloat(formData.balance),
-        locationFilter: formData.locationFilter.length === 0 ? 'all-locations' : formData.locationFilter,
         servicesFilter: formData.servicesFilter.length === 0 ? 'all-services' : formData.servicesFilter,
         staffFilter: formData.staffFilter.length === 0 ? 'all-staff' : formData.staffFilter,
         usageLimit: formData.usageLimit,
@@ -392,32 +362,9 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
               </div>
 
               <div className="space-y-2">
-                <Label>Location Filter</Label>
-                <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                  {locations.map((location) => (
-                    <div key={location.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`location-${location.id}`}
-                        checked={formData.locationFilter.includes(location.id)}
-                        onCheckedChange={(checked) => 
-                          handleMultiSelectChange('locationFilter', location.id, checked as boolean)
-                        }
-                      />
-                      <Label htmlFor={`location-${location.id}`} className="text-sm font-normal">
-                        {location.name}
-                      </Label>
-                    </div>
-                  ))}
-                  {formData.locationFilter.length === 0 && (
-                    <p className="text-xs text-muted-foreground">No locations selected - applies to all locations</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
                 <Label>Services Filter</Label>
                 <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                  {filteredServices.map((service) => (
+                  {services.map((service) => (
                     <div key={service.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`service-${service.id}`}
@@ -431,9 +378,6 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                       </Label>
                     </div>
                   ))}
-                  {filteredServices.length === 0 && formData.locationFilter.length > 0 && (
-                    <p className="text-xs text-muted-foreground">No services available for selected locations</p>
-                  )}
                   {formData.servicesFilter.length === 0 && (
                     <p className="text-xs text-muted-foreground">No services selected - applies to all services</p>
                   )}
@@ -457,8 +401,8 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                       </Label>
                     </div>
                   ))}
-                  {filteredStaff.length === 0 && (formData.locationFilter.length > 0 || formData.servicesFilter.length > 0) && (
-                    <p className="text-xs text-muted-foreground">No staff available for selected filters</p>
+                  {filteredStaff.length === 0 && formData.servicesFilter.length > 0 && (
+                    <p className="text-xs text-muted-foreground">No staff available for selected services</p>
                   )}
                   {formData.staffFilter.length === 0 && (
                     <p className="text-xs text-muted-foreground">No staff selected - applies to all staff</p>

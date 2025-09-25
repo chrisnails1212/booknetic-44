@@ -102,7 +102,6 @@ export interface Giftcard {
   leftover: number;
   usageHistory: string[];
   transactions: GiftcardTransaction[];
-  locationFilter: string | string[];
   servicesFilter: string | string[];
   staffFilter: string | string[];
   usageLimit: string;
