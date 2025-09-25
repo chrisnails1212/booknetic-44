@@ -135,7 +135,24 @@ const BookingPage = () => {
 
     // Apply gift card
     if (availableGiftcard) {
-      totalDiscount += Math.min(subtotal - totalDiscount, availableGiftcard.balance);
+      let giftcardAmount = availableGiftcard.balance;
+      
+      // Apply maximum usage per transaction limit
+      if (availableGiftcard.maxUsagePerTransaction) {
+        giftcardAmount = Math.min(giftcardAmount, availableGiftcard.maxUsagePerTransaction);
+      }
+      
+      // Apply partial usage rules minimum remaining
+      if (availableGiftcard.partialUsageRules?.minimumRemaining) {
+        const maxUsableAmount = availableGiftcard.balance - availableGiftcard.partialUsageRules.minimumRemaining;
+        if (maxUsableAmount > 0) {
+          giftcardAmount = Math.min(giftcardAmount, maxUsableAmount);
+        } else {
+          giftcardAmount = 0; // Cannot use if it would violate minimum remaining
+        }
+      }
+      
+      totalDiscount += Math.min(subtotal - totalDiscount, giftcardAmount);
     }
 
     return totalDiscount;
@@ -180,7 +197,24 @@ const BookingPage = () => {
 
     // Apply gift card
     if (availableGiftcard) {
-      subtotal = Math.max(0, subtotal - availableGiftcard.balance);
+      let giftcardAmount = availableGiftcard.balance;
+      
+      // Apply maximum usage per transaction limit
+      if (availableGiftcard.maxUsagePerTransaction) {
+        giftcardAmount = Math.min(giftcardAmount, availableGiftcard.maxUsagePerTransaction);
+      }
+      
+      // Apply partial usage rules minimum remaining
+      if (availableGiftcard.partialUsageRules?.minimumRemaining) {
+        const maxUsableAmount = availableGiftcard.balance - availableGiftcard.partialUsageRules.minimumRemaining;
+        if (maxUsableAmount > 0) {
+          giftcardAmount = Math.min(giftcardAmount, maxUsableAmount);
+        } else {
+          giftcardAmount = 0; // Cannot use if it would violate minimum remaining
+        }
+      }
+      
+      subtotal = Math.max(0, subtotal - giftcardAmount);
     }
 
     // Add applicable taxes
@@ -466,6 +500,118 @@ const BookingPage = () => {
     if (giftcard.staffFilter !== 'all-staff' && giftcard.staffFilter !== bookingData.staff) {
       const staffMember = staff.find(s => s.id === bookingData.staff);
       return { valid: false, reason: `Gift card is only valid with ${staff.find(s => s.id === giftcard.staffFilter)?.name || 'specific staff members'}.` };
+    }
+
+    // Calculate current booking total for minimum purchase and max usage validation
+    const selectedService = services.find(s => s.id === bookingData.service);
+    let bookingSubtotal = selectedService ? selectedService.price : 0;
+    
+    // Add extras to subtotal
+    selectedExtras.forEach(extraId => {
+      const extra = selectedService?.extras?.find(e => e.id === extraId);
+      if (extra) bookingSubtotal += extra.price;
+    });
+
+    // Check minimum purchase requirement
+    if (giftcard.minimumPurchase && bookingSubtotal < giftcard.minimumPurchase) {
+      return { 
+        valid: false, 
+        reason: `Minimum purchase of ${currency.symbol}${giftcard.minimumPurchase.toFixed(2)} required to use this gift card.` 
+      };
+    }
+
+    // Check maximum usage per transaction
+    if (giftcard.maxUsagePerTransaction && giftcard.maxUsagePerTransaction < bookingSubtotal) {
+      return { 
+        valid: false, 
+        reason: `This gift card can only be used for purchases up to ${currency.symbol}${giftcard.maxUsagePerTransaction.toFixed(2)} per transaction.` 
+      };
+    }
+
+    // Check time restrictions
+    if (giftcard.timeRestrictions) {
+      const currentDate = new Date();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const currentDay = dayNames[currentDate.getDay()];
+      const currentTime = currentDate.toTimeString().slice(0, 5); // HH:MM format
+      
+      // Check allowed days
+      if (giftcard.timeRestrictions.allowedDays && 
+          !giftcard.timeRestrictions.allowedDays.includes(currentDay)) {
+        return { 
+          valid: false, 
+          reason: "This gift card cannot be used on this day of the week." 
+        };
+      }
+      
+      // Check allowed hours
+      if (giftcard.timeRestrictions.allowedHours) {
+        const { start, end } = giftcard.timeRestrictions.allowedHours;
+        if (currentTime < start || currentTime > end) {
+          return { 
+            valid: false, 
+            reason: `This gift card can only be used between ${start} and ${end}.` 
+          };
+        }
+      }
+    }
+
+    // Check daily limit
+    if (giftcard.dailyLimit) {
+      const today = new Date().toDateString();
+      const todayUsage = appointments.filter(apt => {
+        const aptDate = new Date(apt.date).toDateString();
+        return apt.appliedGiftcards?.includes(giftcard.id) && aptDate === today;
+      });
+      
+      const todayTotalUsage = todayUsage.reduce((total, apt) => {
+        // Calculate how much of the gift card was used in this appointment
+        const giftcardUsage = Math.min(giftcard.leftover, apt.totalPrice || 0);
+        return total + giftcardUsage;
+      }, 0);
+      
+      if (todayTotalUsage >= giftcard.dailyLimit) {
+        return { 
+          valid: false, 
+          reason: `Daily usage limit of ${currency.symbol}${giftcard.dailyLimit.toFixed(2)} reached for this gift card.` 
+        };
+      }
+    }
+
+    // Check monthly limit
+    if (giftcard.monthlyLimit) {
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const monthlyUsage = appointments.filter(apt => {
+        const aptDate = new Date(apt.date);
+        return apt.appliedGiftcards?.includes(giftcard.id) && 
+               aptDate.getMonth() === currentMonth && 
+               aptDate.getFullYear() === currentYear;
+      });
+      
+      const monthlyTotalUsage = monthlyUsage.reduce((total, apt) => {
+        const giftcardUsage = Math.min(giftcard.leftover, apt.totalPrice || 0);
+        return total + giftcardUsage;
+      }, 0);
+      
+      if (monthlyTotalUsage >= giftcard.monthlyLimit) {
+        return { 
+          valid: false, 
+          reason: `Monthly usage limit of ${currency.symbol}${giftcard.monthlyLimit.toFixed(2)} reached for this gift card.` 
+        };
+      }
+    }
+
+    // Check category restrictions
+    if (giftcard.categoryRestrictions && giftcard.categoryRestrictions.length > 0) {
+      const selectedService = services.find(s => s.id === bookingData.service);
+      if (selectedService && !giftcard.categoryRestrictions.includes(selectedService.category)) {
+        return { 
+          valid: false, 
+          reason: "This gift card cannot be used for the selected service category." 
+        };
+      }
     }
 
     // Check usage limit
