@@ -276,10 +276,8 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
           </div>
         </SheetHeader>
 
-        <div className="flex flex-col">
-          <div className="overflow-y-auto max-h-[calc(100vh-120px)]">
-            <form onSubmit={handleSubmit} className="space-y-6 mt-6 pb-6">
-              <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-6 mt-6">
+          <div className="space-y-2">
                 <Label htmlFor="code">
                   Code <span className="text-red-500">*</span>
                 </Label>
@@ -619,11 +617,9 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
                     </div>
                   </>
                 )}
-              </div>
-            </form>
-          </div>
+               </div>
           
-          <div className="flex justify-end pt-4 border-t">
+          <div className="flex justify-end pt-4 border-t mt-6">
             <Button 
               type="submit" 
               className="bg-blue-600 hover:bg-blue-700"
@@ -632,7 +628,7 @@ export const GiftcardForm = ({ isOpen, onClose, giftcard }: GiftcardFormProps) =
               {giftcard ? 'UPDATE GIFT CARD' : 'ADD GIFT CARD'}
             </Button>
           </div>
-        </div>
+        </form>
       </SheetContent>
     </Sheet>
   );
