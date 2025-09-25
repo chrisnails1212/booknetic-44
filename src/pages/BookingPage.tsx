@@ -334,6 +334,12 @@ const BookingPage = () => {
   };
 
   const validateCouponUsage = (coupon: any, customerId?: string) => {
+    console.log('Validating coupon:', coupon.code);
+    console.log('Coupon appliesDateFrom:', coupon.appliesDateFrom);
+    console.log('Coupon appliesDateTo:', coupon.appliesDateTo);
+    console.log('Coupon customDateFrom:', coupon.customDateFrom, typeof coupon.customDateFrom);
+    console.log('Coupon customDateTo:', coupon.customDateTo, typeof coupon.customDateTo);
+    
     // Check if coupon is active
     if (coupon.status !== 'Active') {
       return { valid: false, reason: "Coupon is inactive." };
@@ -343,11 +349,14 @@ const BookingPage = () => {
     const currentDate = new Date();
     // Set current date to start of day for accurate comparison
     currentDate.setHours(0, 0, 0, 0);
+    console.log('Current date:', currentDate);
     
     if (coupon.appliesDateFrom === 'Custom' && coupon.customDateFrom) {
       const fromDate = new Date(coupon.customDateFrom);
       fromDate.setHours(0, 0, 0, 0);
+      console.log('From date after processing:', fromDate);
       if (currentDate < fromDate) {
+        console.log('Coupon not yet active');
         return { valid: false, reason: "Coupon is not yet active." };
       }
     }
@@ -355,7 +364,9 @@ const BookingPage = () => {
     if (coupon.appliesDateTo === 'Custom' && coupon.customDateTo) {
       const toDate = new Date(coupon.customDateTo);
       toDate.setHours(23, 59, 59, 999); // End of the day
+      console.log('To date after processing:', toDate);
       if (currentDate > toDate) {
+        console.log('Coupon has expired');
         return { valid: false, reason: "Coupon has expired." };
       }
     }
